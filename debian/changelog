@@ -1,3 +1,11 @@
+libbearlibterminal (0.15.7-2) unstable; urgency=medium
+
+  * Fixed ldconfig trigger
+  * Fixed missing libgl-dev build dep
+  * Extended description now present
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Tue, 18 Feb 2020 15:40:50 +0100
+
 libbearlibterminal (0.15.7-1) unstable; urgency=medium
 
   * Initial release, upstream version 0.15.7
