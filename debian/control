@@ -1,0 +1,32 @@
+Source: libbearlibterminal
+Section: libs
+Priority: optional
+Maintainer: nabijaczleweli <nabijaczleweli@gmail.com>
+Uploaders: nabijaczleweli <nabijaczleweli@gmail.com>
+Standards-Version: 4.5.0
+Rules-Requires-Root: no
+Vcs-Git: https://github.com/nabijaczleweli/BearLibTerminal.deb.git
+Vcs-Browser: https://github.com/nabijaczleweli/BearLibTerminal.deb
+Homepage: https://bitbucket.org/cfyzium/bearlibterminal
+Tag: implemented-in::cpp, role::library
+Build-Depends: cmake,
+               build-essential,
+               libx11-dev,
+
+Package: libbearlibterminal
+Architecture: linux-any
+Multi-Arch: same
+Section: libs
+Priority: optional
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+Description: Interface library for applications with text-based console-like output.
+
+Package: libbearlibterminal-dev
+Architecture: linux-any
+Section: libdevel
+Priority: optional
+Depends: libbearlibterminal (= ${binary:Version}),
+         ${misc:Depends},
+         ${shlibs:Depends},
+Description: Development files for the interface library for applications with text-based console-like output.

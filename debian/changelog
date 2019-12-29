@@ -1,0 +1,5 @@
+libbearlibterminal (0.15.7-1) unstable; urgency=medium
+
+  * Initial release, upstream version 0.15.7
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Tue, 18 Feb 2020 11:20:27 +0100

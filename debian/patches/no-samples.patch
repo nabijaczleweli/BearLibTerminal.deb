@@ -1,0 +1,12 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8a7861f..7c1a910 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -13,7 +13,3 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+ endif()
+ 
+ add_subdirectory(./Terminal)
+-
+-if(IS_DIRECTORY "${CMAKE_SOURCE_DIR}/Samples")
+-    add_subdirectory(./Samples/Omni)
+-endif()
