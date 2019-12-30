@@ -1,3 +1,11 @@
+libbearlibterminal (UNRELEASED) unstable; urgency=medium
+
+  * Fix lintian: gzip-file-is-not-multi-arch-same-safe,
+                 description-too-long,
+                 extended-description-line-too-long
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Tue, 18 Feb 2020 17:39:29 +0100
+
 libbearlibterminal (0.15.7-2) unstable; urgency=medium
 
   * Fixed ldconfig trigger

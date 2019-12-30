@@ -13,7 +13,7 @@ override_dh_auto_install:
 	mkdir -p $(OUTDIR_LIB)usr/$(LIB_PLATFORM) $(OUTDIR_LIB)usr/share/doc/libbearlibterminal/ $(OUTDIR_DEV)usr/include/
 	cp $(dir $(CMAKECACHE))Terminal/libBearLibTerminal.so $(OUTDIR_LIB)usr/$(LIB_PLATFORM)
 	cp Terminal/Include/C/BearLibTerminal.h $(OUTDIR_DEV)usr/include/
-	cat README.md | gzip -9 > $(OUTDIR_LIB)usr/share/doc/libbearlibterminal/README.md.gz
+	cat README.md | gzip -n9 > $(OUTDIR_LIB)usr/share/doc/libbearlibterminal/README.md.gz
 
 %:
 	dh $@

@@ -20,8 +20,9 @@ Section: libs
 Priority: optional
 Depends: ${misc:Depends},
          ${shlibs:Depends},
-Description: Interface library for applications with text-based console-like output.
- BearLibTerminal provides a pseudoterminal window with a grid of character cells and a simple yet powerful API for
+Description: Interface library for applications with text-based console-like output
+ BearLibTerminal provides a pseudoterminal window
+ with a grid of character cells and a simple yet powerful API for
  flexible textual output and uncomplicated input processing, featuring:
    * Unicode support: you can use UTF-8 or UTF-16/32 wide strings easily.
    * Support for bitmap and vector (TrueType) fonts and tilesets.
@@ -36,8 +37,9 @@ Priority: optional
 Depends: libbearlibterminal (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends},
-Description: Development files for the interface library for applications with text-based console-like output.
- BearLibTerminal provides a pseudoterminal window with a grid of character cells and a simple yet powerful API for
+Description: Iface library for applications with text-based console-like output – dev files
+ BearLibTerminal provides a pseudoterminal window
+ with a grid of character cells and a simple yet powerful API for
  flexible textual output and uncomplicated input processing, featuring:
    * Unicode support: you can use UTF-8 or UTF-16/32 wide strings easily.
    * Support for bitmap and vector (TrueType) fonts and tilesets.
