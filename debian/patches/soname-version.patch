@@ -1,0 +1,14 @@
+diff --git a/Terminal/CMakeLists.txt b/Terminal/CMakeLists.txt
+index 69048d1..56e1a24 100644
+--- a/Terminal/CMakeLists.txt
++++ b/Terminal/CMakeLists.txt
+@@ -77,6 +77,9 @@ elseif(APPLE)
+ 	target_link_libraries(BearLibTerminal ${COCOA_LIBRARY})
+ endif()
+ 
++set_target_properties(BearLibTerminal PROPERTIES
++	VERSION ${TERMINAL_VERSION})
++
+ if (WIN32)
+ 	# Fix unix-like "lib" prefix and ".a" suffix
+ 	set_target_properties(BearLibTerminal PROPERTIES

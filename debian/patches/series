@@ -1,2 +1,3 @@
-debian-output-dir.patch
+default-output-dir.patch
+soname-version.patch
 no-samples.patch

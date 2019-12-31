@@ -1,8 +1,10 @@
-libbearlibterminal (UNRELEASED) unstable; urgency=medium
+libbearlibterminal (0.15.7-3) unstable; urgency=medium
 
   * Fix lintian: gzip-file-is-not-multi-arch-same-safe,
                  description-too-long,
-                 extended-description-line-too-long
+                 extended-description-line-too-long,
+                 dev-pkg-without-shlib-symlink,
+                 shlib-without-versioned-soname
 
  -- nabijaczleweli <nabijaczleweli@gmail.com>  Tue, 18 Feb 2020 17:39:29 +0100
 
