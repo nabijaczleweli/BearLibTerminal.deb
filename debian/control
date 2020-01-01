@@ -12,6 +12,7 @@ Build-Depends: cmake,
                debhelper,
                libx11-dev,
                libgl-dev,
+               libfreetype6-dev,
 
 Package: libbearlibterminal
 Architecture: linux-any

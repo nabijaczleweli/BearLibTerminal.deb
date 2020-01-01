@@ -1,3 +1,9 @@
+libbearlibterminal (0.15.7-4) unstable; urgency=medium
+
+  * Use freetype2 from the distribution
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Tue, 18 Feb 2020 19:57:27 +0100
+
 libbearlibterminal (0.15.7-3) unstable; urgency=medium
 
   * Fix lintian: gzip-file-is-not-multi-arch-same-safe,

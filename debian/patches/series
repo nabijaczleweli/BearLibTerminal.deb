@@ -1,3 +1,4 @@
+distribution-freetype2.patch
 default-output-dir.patch
 soname-version.patch
 no-samples.patch

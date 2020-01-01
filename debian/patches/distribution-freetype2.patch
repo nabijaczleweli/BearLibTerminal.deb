@@ -1,0 +1,31 @@
+diff --git a/Terminal/CMakeLists.txt b/Terminal/CMakeLists.txt
+index 6cc1062..2f33990 100644
+--- a/Terminal/CMakeLists.txt
++++ b/Terminal/CMakeLists.txt
+@@ -6,7 +6,7 @@ endif()
+ 
+ option(BUILD_SHARED_LIBS "Build dynamic version of library" ON)
+ 
+-add_subdirectory(Dependencies/FreeType)
++find_package(Freetype REQUIRED)
+ add_subdirectory(Dependencies/PicoPNG)
+ 
+ project(BearLibTerminal)
+@@ -57,7 +57,7 @@ if (APPLE)
+ endif()
+ 
+ include_directories(./Include/C)
+-include_directories(./Dependencies/FreeType/Include)
++include_directories(${FREETYPE_INCLUDE_DIRS})
+ include_directories(./Dependencies/PicoPNG/Include)
+ include_directories(./Dependencies/NanoJPEG/Include)
+ 
+@@ -65,7 +65,7 @@ add_library(BearLibTerminal ${TERMINAL_SOURCES} ${TERMINAL_HEADERS})
+ 
+ target_compile_definitions(BearLibTerminal PRIVATE TERMINAL_VERSION=\"${TERMINAL_VERSION}\")
+ 
+-target_link_libraries(BearLibTerminal freetype2)
++target_link_libraries(BearLibTerminal ${FREETYPE_LIBRARIES})
+ target_link_libraries(BearLibTerminal picopng)
+ target_link_libraries(BearLibTerminal ${OPENGL_gl_LIBRARY})
+ if(WIN32)
