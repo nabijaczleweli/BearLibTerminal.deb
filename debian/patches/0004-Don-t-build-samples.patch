@@ -1,3 +1,11 @@
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Mon, 6 Jan 2020 07:39:16 +0100
+Subject: Don't build samples
+
+---
+ CMakeLists.txt | 4 ----
+ 1 file changed, 4 deletions(-)
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index 8a7861f..7c1a910 100644
 --- a/CMakeLists.txt

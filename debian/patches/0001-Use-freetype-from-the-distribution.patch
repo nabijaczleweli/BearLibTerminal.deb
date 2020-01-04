@@ -1,3 +1,12 @@
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 5 Jan 2020 07:32:01 +0100
+Subject: Use freetype from the distribution
+
+This also stops dh complaining about it being embedded
+---
+ Terminal/CMakeLists.txt | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
 diff --git a/Terminal/CMakeLists.txt b/Terminal/CMakeLists.txt
 index 6cc1062..2f33990 100644
 --- a/Terminal/CMakeLists.txt

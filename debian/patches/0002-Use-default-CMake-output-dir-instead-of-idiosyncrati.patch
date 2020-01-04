@@ -1,5 +1,13 @@
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Sun, 5 Jan 2020 07:35:18 +0100
+Subject: Use default CMake output dir instead of idiosyncratic BLT one
+
+---
+ Terminal/CMakeLists.txt | 6 ------
+ 1 file changed, 6 deletions(-)
+
 diff --git a/Terminal/CMakeLists.txt b/Terminal/CMakeLists.txt
-index 6cc1062..69048d1 100644
+index 2f33990..20e3ac0 100644
 --- a/Terminal/CMakeLists.txt
 +++ b/Terminal/CMakeLists.txt
 @@ -77,12 +77,6 @@ elseif(APPLE)

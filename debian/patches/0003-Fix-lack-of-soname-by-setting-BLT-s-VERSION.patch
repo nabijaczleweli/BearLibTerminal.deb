@@ -1,5 +1,13 @@
+From: nabijaczleweli <nabijaczleweli@gmail.com>
+Date: Mon, 6 Jan 2020 07:37:19 +0100
+Subject: Fix lack of soname by setting BLT's VERSION
+
+---
+ Terminal/CMakeLists.txt | 3 +++
+ 1 file changed, 3 insertions(+)
+
 diff --git a/Terminal/CMakeLists.txt b/Terminal/CMakeLists.txt
-index 69048d1..56e1a24 100644
+index 20e3ac0..bac2887 100644
 --- a/Terminal/CMakeLists.txt
 +++ b/Terminal/CMakeLists.txt
 @@ -77,6 +77,9 @@ elseif(APPLE)

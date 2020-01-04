@@ -1,4 +1,4 @@
-distribution-freetype2.patch
-default-output-dir.patch
-soname-version.patch
-no-samples.patch
+0001-Use-freetype-from-the-distribution.patch
+0002-Use-default-CMake-output-dir-instead-of-idiosyncrati.patch
+0003-Fix-lack-of-soname-by-setting-BLT-s-VERSION.patch
+0004-Don-t-build-samples.patch
