@@ -1,3 +1,9 @@
+libbearlibterminal (0.15.7-5) unstable; urgency=medium
+
+  * Use debhelper overrides correctly
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Thu, 20 Feb 2020 03:07:06 +0100
+
 libbearlibterminal (0.15.7-4) unstable; urgency=medium
 
   * Use freetype2 from the distribution

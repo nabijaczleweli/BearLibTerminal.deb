@@ -13,13 +13,16 @@ VERSION_MIN = $(word 2,$(subst ., ,$(VERSION)))
 
 
 override_dh_auto_install:
-	mkdir -p $(OUTDIR_LIB)usr/$(LIB_PLATFORM) $(OUTDIR_DEV)usr/$(LIB_PLATFORM) $(OUTDIR_LIB)usr/share/doc/libbearlibterminal/ $(OUTDIR_DEV)usr/include/
+	mkdir -p $(OUTDIR_LIB)usr/$(LIB_PLATFORM) $(OUTDIR_DEV)usr/$(LIB_PLATFORM) $(OUTDIR_DEV)usr/include/
 	cp $(dir $(CMAKECACHE))Terminal/libBearLibTerminal.so.$(VERSION) $(OUTDIR_LIB)usr/$(LIB_PLATFORM)
 	cd $(OUTDIR_LIB)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION) libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN)
 	cd $(OUTDIR_LIB)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN) libBearLibTerminal.so.$(VERSION_MAJ)
+	@
 	cd $(OUTDIR_DEV)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION_MAJ) libBearLibTerminal.so
 	cp Terminal/Include/C/BearLibTerminal.h $(OUTDIR_DEV)usr/include/
-	cat README.md | gzip -n9 > $(OUTDIR_LIB)usr/share/doc/libbearlibterminal/README.md.gz
+
+override_dh_installdocs:
+	dh_installdocs README.md
 
 %:
 	dh $@
