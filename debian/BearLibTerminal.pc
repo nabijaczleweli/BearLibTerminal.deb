@@ -1,0 +1,12 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${prefix}/lib/@TRIPLE@
+includedir=${prefix}/include
+
+Name: BearLibTerminal
+Description: Interface library for applications with text-based console-like output
+URL: https://bitbucket.org/cfyzium/bearlibterminal
+Version: @VERSION@
+
+Libs: -L${libdir} -lBearLibTerminal
+Cflags: -I${includedir}

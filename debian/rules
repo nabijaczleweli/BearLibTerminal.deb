@@ -3,23 +3,25 @@
 
 OUTDIR_LIB = $(CURDIR)/debian/libbearlibterminal/
 OUTDIR_DEV = $(CURDIR)/debian/libbearlibterminal-dev/
-CMAKECACHE = $(shell find -name CMakeCache.txt)
-ifneq "$(CMAKECACHE)" ""
-LIB_PLATFORM = $(shell awk -F= '/CMAKE_INSTALL_LIBDIR/ {print $$2}' "$(CMAKECACHE)")/
-endif
-VERSION = $(shell awk '/^\#{3}/ {print $$2; exit}' CHANGELOG.md)
+
+VERSION     = $(shell awk '/^\#{3}/ {print $$2; exit}' CHANGELOG.md)
 VERSION_MAJ = $(word 1,$(subst ., ,$(VERSION)))
 VERSION_MIN = $(word 2,$(subst ., ,$(VERSION)))
 
+# https://wiki.debian.org/Multiarch/Tuples#Supporting_interfaces
+TRIPLE    = $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
+BUILD_DIR = $(dir $(shell find -name CMakeCache.txt))
+
 
 override_dh_auto_install:
-	mkdir -p $(OUTDIR_LIB)usr/$(LIB_PLATFORM) $(OUTDIR_DEV)usr/$(LIB_PLATFORM) $(OUTDIR_DEV)usr/include/
-	cp $(dir $(CMAKECACHE))Terminal/libBearLibTerminal.so.$(VERSION) $(OUTDIR_LIB)usr/$(LIB_PLATFORM)
-	cd $(OUTDIR_LIB)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION) libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN)
-	cd $(OUTDIR_LIB)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN) libBearLibTerminal.so.$(VERSION_MAJ)
+	mkdir -p $(OUTDIR_LIB)usr/lib/$(TRIPLE) $(OUTDIR_DEV)usr/lib/$(TRIPLE) $(OUTDIR_DEV)usr/include/ $(OUTDIR_DEV)usr/lib/$(TRIPLE)/pkgconfig
+	cp $(BUILD_DIR)Terminal/libBearLibTerminal.so.$(VERSION) $(OUTDIR_LIB)usr/lib/$(TRIPLE)
+	cd $(OUTDIR_LIB)usr/lib/$(TRIPLE) && ln -s libBearLibTerminal.so.$(VERSION) libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN)
+	cd $(OUTDIR_LIB)usr/lib/$(TRIPLE) && ln -s libBearLibTerminal.so.$(VERSION_MAJ).$(VERSION_MIN) libBearLibTerminal.so.$(VERSION_MAJ)
 	@
-	cd $(OUTDIR_DEV)usr/$(LIB_PLATFORM) && ln -s libBearLibTerminal.so.$(VERSION_MAJ) libBearLibTerminal.so
+	cd $(OUTDIR_DEV)usr/lib/$(TRIPLE) && ln -s libBearLibTerminal.so.$(VERSION_MAJ) libBearLibTerminal.so
 	cp Terminal/Include/C/BearLibTerminal.h $(OUTDIR_DEV)usr/include/
+	sed $(foreach l,TRIPLE VERSION,-e 's/@$(l)@/$($(l))/g') debian/BearLibTerminal.pc > $(OUTDIR_DEV)usr/lib/$(TRIPLE)/pkgconfig/BearLibTerminal.pc
 
 override_dh_installdocs:
 	dh_installdocs README.md
