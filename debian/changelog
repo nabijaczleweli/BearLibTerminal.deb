@@ -1,3 +1,10 @@
+libbearlibterminal (0.15.7-6) unstable; urgency=medium
+
+  * Add pkg-config spec
+  * Fix triple detection
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Sun, 23 Feb 2020 23:59:54 +0100
+
 libbearlibterminal (0.15.7-5) unstable; urgency=medium
 
   * Use debhelper overrides correctly
