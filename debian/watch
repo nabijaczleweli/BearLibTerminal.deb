@@ -1,0 +1,6 @@
+# Note: this is ineffective.
+# The latest version is kept in the CHANGELOG.md file, and releases are not tagged:
+# latest tag at time of writing is 12.0.1, with the actual version being 15.7.1.
+
+version=4
+https://bitbucket.org/cfyzium/bearlibterminal/downloads?tab=tags .*/(\d\S+)\.tar\.gz

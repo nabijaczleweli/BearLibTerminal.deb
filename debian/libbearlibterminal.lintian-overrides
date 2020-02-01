@@ -1,0 +1,2 @@
+# The so(name) is BearLibTerminal, the package is lowercase
+libbearlibterminal: package-name-doesnt-match-sonames

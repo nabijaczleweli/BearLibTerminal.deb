@@ -8,17 +8,16 @@ Vcs-Git: https://github.com/nabijaczleweli/BearLibTerminal.deb.git
 Vcs-Browser: https://github.com/nabijaczleweli/BearLibTerminal.deb
 Homepage: https://bitbucket.org/cfyzium/bearlibterminal
 Tag: implemented-in::cpp, role::library
-Build-Depends: cmake,
-               debhelper,
+Build-Depends: debhelper,
+               debhelper-compat (= 12),
+               cmake,
                libx11-dev,
                libgl-dev,
                libfreetype6-dev,
 
 Package: libbearlibterminal
-Architecture: linux-any
+Architecture: any
 Multi-Arch: same
-Section: libs
-Priority: optional
 Depends: ${misc:Depends},
          ${shlibs:Depends},
 Description: Interface library for applications with text-based console-like output
@@ -32,18 +31,14 @@ Description: Interface library for applications with text-based console-like out
    * Keyboard and mouse support.
 
 Package: libbearlibterminal-dev
-Architecture: linux-any
+Architecture: any
 Section: libdevel
-Priority: optional
 Depends: libbearlibterminal (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends},
 Description: Iface library for applications with text-based console-like output – dev files
  BearLibTerminal provides a pseudoterminal window
  with a grid of character cells and a simple yet powerful API for
- flexible textual output and uncomplicated input processing, featuring:
-   * Unicode support: you can use UTF-8 or UTF-16/32 wide strings easily.
-   * Support for bitmap and vector (TrueType) fonts and tilesets.
-   * Extended output facilities: tile composition, alignment, offsets.
-   * High performance (uses OpenGL).
-   * Keyboard and mouse support.
+ flexible textual output and uncomplicated input processing.
+ .
+ This package contains just the headers and unversioned .so links.
