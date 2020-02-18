@@ -34,6 +34,12 @@
 #include "BearLibTerminal.h"
 #include <future>
 
+// X11 hack because X.h #defines these names without any regards to others
+#define XlibKeyPress 2
+#define XlibKeyRelease 3
+#undef KeyPress
+#undef KeyRelease
+
 namespace BearLibTerminal
 {
 	struct X11Window::Private
@@ -513,7 +519,7 @@ namespace BearLibTerminal
 			{
 				HandleRepaint();
 			}
-			else if (e.type == KeyPress || e.type == KeyRelease)
+			else if (e.type == XlibKeyPress || e.type == XlibKeyRelease)
 			{
 				wchar_t buffer[255] = {0};
 				KeySym key;
@@ -524,15 +530,16 @@ namespace BearLibTerminal
 				unsigned int keycode = e.xkey.keycode;
 				int code = X11_TranslateKeycode(m_private->display, keycode);
 
-				Keystroke stroke;
-				stroke.released = (e.type == KeyRelease);
-				stroke.scancode = code;
-				stroke.character = buffer[0];
-
+                std::uint32_t mask = (e.type == XlibKeyPress)? Keystroke::KeyPress: Keystroke::KeyRelease;
+				Keystroke stroke(mask, code, buffer[0]);
 				if (code != TK_SPACE && ((code >= TK_LBUTTON && code <= TK_DELETE) || rc == 0))
 				{
 					stroke.character = 0;
 				}
+                else if (mask == Keystroke::KeyPress && buffer[0] > 0)
+                {
+                    stroke.type |= Keystroke::Unicode;
+                }
 
 				std::lock_guard<std::mutex> guard(m_lock);
 				if (m_on_input) m_on_input(stroke);
@@ -546,10 +553,7 @@ namespace BearLibTerminal
 					m_client_size = new_size;
 					if (m_on_input)
 					{
-						Keystroke stroke;
-						stroke.scancode = TK_WINDOW_RESIZE;
-						stroke.x = m_client_size.width;
-						stroke.y = m_client_size.height;
+						Keystroke stroke(Keystroke::KeyPress, TK_WINDOW_RESIZE, m_client_size.width, m_client_size.height, 0);
 						m_on_input(stroke);
 					}
 				}
@@ -560,20 +564,13 @@ namespace BearLibTerminal
 				m_mouse_position.x = e.xmotion.x;
 				m_mouse_position.y = e.xmotion.y;
 
-				Keystroke stroke;
-				stroke.released = true;
-				stroke.scancode = TK_MOUSE_MOVE;
-				stroke.character = 0;
-				stroke.x = m_mouse_position.x;
-				stroke.y = m_mouse_position.y;
+				Keystroke stroke(Keystroke::MouseMove, TK_MOUSE_MOVE, m_mouse_position.x, m_mouse_position.y, 0);
 				ReportInput(stroke);
 			}
 			else if (e.type == ButtonPress || e.type == ButtonRelease)
 			{
 				// OnMousePress/Release
-				Keystroke stroke;
-				stroke.released = (e.type == ButtonRelease);
-				stroke.character = 0;
+				Keystroke stroke(e.type == ButtonPress? Keystroke::KeyPress: Keystroke::KeyRelease, 0);
 				if (e.xbutton.button == 1)
 				{
 					// LMB
@@ -584,12 +581,12 @@ namespace BearLibTerminal
 					// RMB
 					stroke.scancode = TK_RBUTTON;
 				}
-				else if (e.xbutton.button == 4 && !stroke.released)
+				else if (e.xbutton.button == 4 && e.type == ButtonPress)
 				{
 					m_mouse_wheel -= 1;
 					stroke.scancode = TK_MOUSE_SCROLL;
 				}
-				else if (e.xbutton.button == 5 && !stroke.released)
+				else if (e.xbutton.button == 5 && e.type == ButtonPress)
 				{
 					m_mouse_wheel += 1;
 					stroke.scancode = TK_MOUSE_SCROLL;
@@ -612,10 +609,7 @@ namespace BearLibTerminal
 			}
 			else if (e.type == ClientMessage && e.xclient.data.l[0] == (long)m_private->close_message)
 			{
-				Keystroke stroke;
-				stroke.released = false;
-				stroke.scancode = TK_CLOSE;
-				stroke.character = 0;
+				Keystroke stroke(Keystroke::KeyPress, TK_CLOSE);
 				ReportInput(stroke);
 			}
 		}
