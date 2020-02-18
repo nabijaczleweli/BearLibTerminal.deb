@@ -30,6 +30,12 @@
 #include "Window.hpp"
 #include "Semaphore.hpp"
 
+// Force SDK version to XP SP3
+#if !defined(WINVER)
+#define WINVER 0x502
+#define _WIN32_WINNT 0x502
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <WindowsX.h>
@@ -41,24 +47,24 @@ namespace BearLibTerminal
 	public:
 		WinApiWindow();
 		~WinApiWindow();
-		bool ValidateIcon(const std::wstring& filename) override;
-		void SetTitle(const std::wstring& title) override;
-		void SetIcon(const std::wstring& filename) override;
-		void SetClientSize(const Size& size) override;
-		void Redraw() override;
-		void Show() override;
-		void Hide() override;
-		void Invoke(std::function<void()> func) override;
-		bool AcquireRC() override;
-		bool ReleaseRC() override;
-		void SwapBuffers() override;
-		void SetVSync(bool enabled) override;
-		void SetResizeable(bool resizeable) override;
+		bool ValidateIcon(const std::wstring& filename);
+		void SetTitle(const std::wstring& title);
+		void SetIcon(const std::wstring& filename);
+		void SetClientSize(const Size& size);
+		void Redraw();
+		void Show();
+		void Hide();
+		void Invoke(std::function<void()> func);
+		bool AcquireRC();
+		bool ReleaseRC();
+		void SwapBuffers();
+		void SetVSync(bool enabled);
+		void SetResizeable(bool resizeable);
 	protected:
-		void ThreadFunction() override;
-		bool Construct() override;
-		void Destroy() override;
-		bool PumpEvents() override;
+		void ThreadFunction();
+		bool Construct();
+		void Destroy();
+		bool PumpEvents();
 		void DestroyUnlocked();
 		bool CreateWindowObject();
 		bool CreateOpenGLContext();
@@ -77,7 +83,7 @@ namespace BearLibTerminal
 		int m_mouse_wheel;
 		bool m_maximized;
 
-		typedef BOOL (*PFN_WGLSWAPINTERVALEXT)(int interval);
+		typedef BOOL (WINAPI *PFN_WGLSWAPINTERVALEXT)(int interval);
 		PFN_WGLSWAPINTERVALEXT m_wglSwapIntervalEXT;
 	};
 }

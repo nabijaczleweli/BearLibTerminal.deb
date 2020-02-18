@@ -1,43 +1,55 @@
 cmake_minimum_required(VERSION 2.8)
 
+add_subdirectory(Dependencies/FreeType)
+add_subdirectory(Dependencies/PicoPNG)
+
 project(BearLibTerminal)
+
+# Detect system bitness
+math(EXPR BITNESS "8*${CMAKE_SIZEOF_VOID_P}")
 
 file(GLOB TERMINAL_SOURCES ./Source/*.cpp) # FIXME: manual selection
 
-#set(CF "-std=c++11 -O3 -g3 -flto")
-#set(LF "-flto -fvisibility=hidden")
+# Release flags
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g0")
+set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-s")
 
-set(CF "-std=c++11 -O3 -g0 -flto")
-set(LF "-s -flto -fvisibility=hidden")
+# Debug flags
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3")
 
-#set(CF "-std=c++11 -O0 -g3")
-#set(LF "-fvisibility=hidden")
-
+# Common flags
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fvisibility=hidden")
 if (WIN32)
-	set(CF "${CF} -DUNICODE")
-	set(LF "${LF} -static")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUNICODE")
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static")
 else()
-	set(LF "${LF} -static-libstdc++ -static-libgcc")
+	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc")
+	if (${BITNESS} EQUAL 32)
+		# 32-bit build can take advantage of greater compatibility by statically linking to libstdc++.
+		# It is impossible to do that on 64-bit because of -fPIC requirement. 
+		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
+	endif()
 endif()
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CF}")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} ${LF}")
 
 find_package(OpenGL)
 
 include_directories(./Include/C)
-include_directories(../Dependencies/FreeType/Include)
+include_directories(./Dependencies/FreeType/Include)
+include_directories(./Dependencies/PicoPNG/Include)
+include_directories(./Dependencies/NanoJPEG/Include)
 
 add_library(BearLibTerminal SHARED ${TERMINAL_SOURCES})
 
-target_link_libraries(BearLibTerminal freetype2-minimal-static)
+target_link_libraries(BearLibTerminal freetype2)
+target_link_libraries(BearLibTerminal picopng)
 target_link_libraries(BearLibTerminal ${OPENGL_gl_LIBRARY})
 if(WIN32)
 	target_link_libraries(BearLibTerminal winmm.lib)
-	target_link_libraries(BearLibTerminal ${PROJECT_SOURCE_DIR}/Resource/Terminal.res)
+	target_link_libraries(BearLibTerminal ${PROJECT_SOURCE_DIR}/Resource/Terminal-${BITNESS}bit.res)
 endif()
 
-set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/Output)
+set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/Output/${CMAKE_SYSTEM_NAME}${BITNESS})
 set_target_properties(BearLibTerminal PROPERTIES
 	RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 	LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}

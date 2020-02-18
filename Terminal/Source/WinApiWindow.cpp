@@ -35,6 +35,10 @@
 
 #include <Mmsystem.h>
 
+#if !defined(MAPVK_VSC_TO_VK)
+#define MAPVK_VSC_TO_VK 1
+#endif
+
 #define WM_CUSTOM_SETSIZE (WM_APP+1)
 #define WM_CUSTOM_SETTITLE (WM_APP+2)
 #define WM_CUSTOM_SETICON (WM_APP+3)
@@ -378,7 +382,7 @@ namespace BearLibTerminal
 		}
 
 		// Hook custom WndProc
-		SetWindowLongPtrW(m_handle, GWL_USERDATA, (LONG_PTR)(void*)this);
+		SetWindowLongPtrW(m_handle, GWLP_USERDATA, (LONG_PTR)(void*)this);
 
 		return true;
 	}
@@ -393,7 +397,7 @@ namespace BearLibTerminal
 		}
 
 		PIXELFORMATDESCRIPTOR pfd;
-		memset(&pfd, sizeof(pfd), 0);
+		memset(&pfd, 0, sizeof(pfd));
 		pfd.nSize = sizeof(pfd);
 		pfd.nVersion = 1;
 		pfd.dwFlags = PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
@@ -500,7 +504,7 @@ namespace BearLibTerminal
 
 	LRESULT CALLBACK WinApiWindow::SharedWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		WinApiWindow* p = (WinApiWindow*)GetWindowLongPtrW(hwnd, GWL_USERDATA);
+		WinApiWindow* p = (WinApiWindow*)GetWindowLongPtrW(hwnd, GWLP_USERDATA);
 
 		return (p == nullptr)?
 			DefWindowProc(hwnd, uMsg, wParam, lParam):
@@ -903,7 +907,7 @@ namespace BearLibTerminal
 			HICON new_small_icon = LoadIconFromFile(*filename, true);
 			if ( new_small_icon != NULL )
 			{
-				HICON old_small_icon = (HICON)SetClassLong(m_handle, GCL_HICONSM, (LONG)new_small_icon);
+				HICON old_small_icon = (HICON)SetClassLongPtr(m_handle, GCLP_HICONSM, (LONG_PTR)new_small_icon);
 				DWORD rc = GetLastError();
 				if ( rc == 0 )
 				{
@@ -918,7 +922,7 @@ namespace BearLibTerminal
 			HICON new_large_icon = LoadIconFromFile(*filename, false);
 			if ( new_large_icon != NULL )
 			{
-				HICON old_large_icon = (HICON)SetClassLong(m_handle, GCL_HICON, (LONG)new_large_icon);
+				HICON old_large_icon = (HICON)SetClassLongPtr(m_handle, GCLP_HICON, (LONG_PTR)new_large_icon);
 				DWORD rc = GetLastError();
 				if ( rc == 0 )
 				{

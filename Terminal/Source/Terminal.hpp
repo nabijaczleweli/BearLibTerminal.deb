@@ -33,6 +33,7 @@
 #include <deque>
 #include <atomic>
 #include <condition_variable>
+#include <array>
 
 namespace BearLibTerminal
 {
@@ -69,7 +70,6 @@ namespace BearLibTerminal
 		void ConfigureViewport();
 		void PutInternal(int x, int y, int dx, int dy, wchar_t code, Color* colors);
 		void PrepareFreshCharacters();
-		void ConsumeIrrelevantInput();
 		void ConsumeStroke(const Keystroke& stroke);
 		bool HasInputInternalUnlocked(std::uint32_t mask);
 		Keystroke ReadKeystroke(int flags, int timeout);

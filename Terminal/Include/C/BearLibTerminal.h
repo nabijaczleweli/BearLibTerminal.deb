@@ -23,6 +23,10 @@
 #ifndef BEARLIBTERMINAL_H
 #define BEARLIBTERMINAL_H
 
+#if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
+#define _CRT_SECURE_NO_WARNINGS
+#endif
+
 #include <stdio.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -340,10 +344,16 @@ static inline color_t color_from_wname(const wchar_t* name)
 		return rc;\
 	}
 
+#if defined(_WIN32)
+#define TERMINAL_VSNWPRINTF _vsnwprintf
+#else
+#define TERMINAL_VSNWPRINTF vswprintf
+#endif
+
 TERMINAL_FORMATTED_VA(char, set, (const char* s, va_list args), vsnprintf, (buffer))
-TERMINAL_FORMATTED_VA(wchar_t, wset, (const wchar_t* s, va_list args), vswprintf, (buffer))
+TERMINAL_FORMATTED_VA(wchar_t, wset, (const wchar_t* s, va_list args), TERMINAL_VSNWPRINTF, (buffer))
 TERMINAL_FORMATTED_VA(char, print, (int x, int y, const char* s, va_list args), vsnprintf, (x, y, buffer))
-TERMINAL_FORMATTED_VA(wchar_t, wprint, (int x, int y, const wchar_t* s, va_list args), vswprintf, (x, y, buffer))
+TERMINAL_FORMATTED_VA(wchar_t, wprint, (int x, int y, const wchar_t* s, va_list args), TERMINAL_VSNWPRINTF, (x, y, buffer))
 
 #define TERMINAL_FORMATTED(outer, inner)\
 	static inline int terminal_##outer\
