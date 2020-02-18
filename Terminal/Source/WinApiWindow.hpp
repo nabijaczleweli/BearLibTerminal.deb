@@ -51,7 +51,6 @@ namespace BearLibTerminal
 		void SetTitle(const std::wstring& title);
 		void SetIcon(const std::wstring& filename);
 		void SetClientSize(const Size& size);
-		void Redraw();
 		void Show();
 		void Hide();
 		std::future<void> Post(std::function<void()> func);
@@ -61,6 +60,7 @@ namespace BearLibTerminal
 		void SetVSync(bool enabled);
 		void SetResizeable(bool resizeable);
 		void ToggleFullscreen();
+		void SetCursorVisibility(bool visible);
 		Size GetActualSize();
 	protected:
 		void ThreadFunction();
@@ -72,18 +72,22 @@ namespace BearLibTerminal
 		bool CreateOpenGLContext();
 		void DestroyWindowObject();
 		void DestroyOpenGLContext();
+		void Redraw();
 		static LRESULT CALLBACK SharedWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 		LRESULT WindowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 		LRESULT HandleWmPaint(WPARAM wParam, LPARAM lParam);
-		void ReportInput(const Keystroke& keystroke);
 	protected:
 		std::wstring m_class_name;
 		HWND m_handle;
 		HDC m_device_context;
 		HGLRC m_rendering_context;
 		Semaphore m_redraw_barrier;
-		int m_mouse_wheel;
 		bool m_maximized;
+		uint64_t m_last_mouse_click;
+		int m_consecutive_mouse_clicks;
+		bool m_suppress_wm_paint_once;
+		bool m_mouse_cursor_enabled;
+		bool m_mouse_cursor_visible;
 
 		typedef BOOL (WINAPI *PFN_WGLSWAPINTERVALEXT)(int interval);
 		PFN_WGLSWAPINTERVALEXT m_wglSwapIntervalEXT;
