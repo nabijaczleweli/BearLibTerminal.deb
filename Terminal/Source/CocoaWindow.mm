@@ -39,7 +39,8 @@
 {
     BearLibTerminal::CocoaWindow::Impl* m_impl;
 }
-- (id)initWithImpl:(BearLibTerminal::CocoaWindow::Impl*)impl;
+- (id)init;
+- (void)setImpl:(BearLibTerminal::CocoaWindow::Impl*)impl;
 @end
 
 @interface CocoaTerminalWindow: NSWindow<NSWindowDelegate>
@@ -365,11 +366,16 @@ namespace BearLibTerminal
 	
     void CocoaWindow::Construct()
     {
-        [CocoaTerminalApplication sharedApplication];
-        [NSApp setDelegate:[[CocoaTerminalApplicationDelegate alloc] initWithImpl:m_impl.get()]];
-        [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
-        [NSApp run];
+        if (!NSApp)
+        {
+            [CocoaTerminalApplication sharedApplication];
+            [NSApp setDelegate:[[CocoaTerminalApplicationDelegate alloc] init]];
+            [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
+            [NSApp run];
+        }
         
+        [[NSApp delegate] setImpl:m_impl.get()];
+		
         NSUInteger styleMask =
             NSTitledWindowMask|
             NSClosableWindowMask|
@@ -435,6 +441,8 @@ namespace BearLibTerminal
             [m_impl->m_window close];
             m_impl->m_window = nil;
         }
+		
+        [[NSApp delegate] setImpl:NULL];
     }
     
     Size CocoaWindow::GetActualSize()
@@ -575,6 +583,18 @@ namespace BearLibTerminal
         
         return processed;
     }
+
+    std::wstring GetCocoaPasteboardString()
+    {
+        NSData *clipboardData = [[NSPasteboard generalPasteboard] dataForType:NSPasteboardTypeString];
+        if (clipboardData != nil)
+        {
+            NSString *asNsString = [[NSString alloc] initWithData:clipboardData encoding:NSUTF8StringEncoding];
+            std::string asString(asNsString.UTF8String);
+            return std::wstring(UTF8Encoding().Convert(asString));
+        }
+        return std::wstring();
+    }
 }
 
 @implementation CocoaTerminalApplication
@@ -593,17 +613,22 @@ namespace BearLibTerminal
 
 @implementation CocoaTerminalApplicationDelegate
 
-- (id)initWithImpl:(BearLibTerminal::CocoaWindow::Impl*)impl
+- (id)init
 {
     self = [super init];
-    if (self != nil)
-        m_impl = impl;
+    m_impl = NULL;
     return self;
+}
+
+- (void)setImpl:(BearLibTerminal::CocoaWindow::Impl*)impl
+{
+    m_impl = impl;
 }
 
 - (NSApplicationTerminateReply)applicationShouldTerminate: (NSApplication*)sender
 {
-    m_impl->m_handler(TK_CLOSE);
+    if (m_impl)
+        m_impl->m_handler(TK_CLOSE);
     return NSTerminateCancel;
 }
 
@@ -615,7 +640,8 @@ namespace BearLibTerminal
 
 - (void)applicationDidBecomeActive:(NSNotification *)notification
 {
-    m_impl->HandleApplicationDidBecomeActive();
+    if (m_impl)
+        m_impl->HandleApplicationDidBecomeActive();
 }
 
 @end

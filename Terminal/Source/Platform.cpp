@@ -24,6 +24,7 @@
 #include "Encoding.hpp"
 #include "Utility.hpp"
 #include "Log.hpp"
+#include "Terminal.hpp"
 #include <vector>
 #include <fstream>
 #include <iostream>
@@ -45,6 +46,10 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#if defined(__APPLE__)
+#include "CocoaWindow.h"
+#endif
 
 #if defined(GetCurrentDirectory)
 #undef GetCurrentDirectory
@@ -520,6 +525,35 @@ namespace BearLibTerminal
 		WriteFile(stderr_handle, what, strlen(what), &written, NULL);
 #else
 		std::cerr << what;
+#endif
+	}
+
+	std::wstring GetClipboardContents()
+	{
+#if defined(_WIN32)
+		if (!OpenClipboard(NULL))
+		{
+			LOG(Error, "Failed to open clipboard");
+			return L"";
+		}
+
+		std::wstring text;
+		if (HGLOBAL handle = GetClipboardData(CF_UNICODETEXT))
+		{
+			if (auto ptr = (const wchar_t*)GlobalLock(handle))
+			{
+				text = ptr;
+				GlobalUnlock(handle);
+			}
+		}
+
+		CloseClipboard();
+		return text;
+#elif defined(__APPLE__)
+		return GetCocoaPasteboardString();
+#else
+		// XXX: Another refactoring is imminent.
+		return g_instance? g_instance->GetClipboard(): std::wstring{};
 #endif
 	}
 }

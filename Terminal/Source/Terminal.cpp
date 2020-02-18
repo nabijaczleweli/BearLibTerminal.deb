@@ -51,6 +51,8 @@ namespace BearLibTerminal
 
 namespace BearLibTerminal
 {
+	std::unique_ptr<Terminal> g_instance;
+
 	static std::vector<float> kScaleSteps =
 	{
 		0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f
@@ -775,7 +777,8 @@ namespace BearLibTerminal
 			throw std::runtime_error("input.cursor-blink-rate cannot be parsed");
 		}
 
-		if (options.input_cursor_blink_rate <= 0) options.input_cursor_blink_rate = 1;
+		if (options.input_cursor_blink_rate < 0)
+			options.input_cursor_blink_rate = 0;
 
 		if (group.attributes.count(L"mouse-cursor") && !try_parse(group.attributes[L"mouse-cursor"], options.input_mouse_cursor))
 		{
@@ -894,7 +897,7 @@ namespace BearLibTerminal
 
 	void Terminal::ValidateOutputOptions(OptionGroup& group, Options& options)
 	{
-		// Possible options: postformatting, vsync
+		// Possible options: postformatting, vsync, tab-width
 
 		// TODO: deprecated
 		if (group.attributes.count(L"postformatting") && !try_parse(group.attributes[L"postformatting"], options.output_postformatting))
@@ -906,6 +909,14 @@ namespace BearLibTerminal
 		{
 			throw std::runtime_error("output.vsync cannot be parsed");
 		}
+
+		if (group.attributes.count(L"tab-width") && !try_parse(group.attributes[L"tab-width"], options.output_tab_width))
+		{
+			throw std::runtime_error("output.tab-width cannot be parsed");
+		}
+
+		if (options.output_tab_width < 0)
+			options.output_tab_width = 0;
 	}
 
 	void Terminal::ValidateLoggingOptions(OptionGroup& group, Options& options)
@@ -1402,6 +1413,13 @@ namespace BearLibTerminal
 					AppendSymbol(L']');
 				}
 			}
+			else if (c == L'\t')
+			{
+				for (int i = 0; i < m_options.output_tab_width; i++)
+				{
+					AppendSymbol(L' ');
+				}
+			}
 			else if (c == L'\n') // forced line-break
 			{
 				lines.emplace_back();
@@ -1708,7 +1726,8 @@ namespace BearLibTerminal
 			put_buffer(show_cursor);
 			Refresh();
 
-			auto event = ReadEvent(m_options.input_cursor_blink_rate);
+			int blink_rate = m_options.input_cursor_blink_rate;
+			auto event = ReadEvent(blink_rate? blink_rate: std::numeric_limits<int>::max());
 
 			if (event.code == TK_INPUT_NONE)
 			{
@@ -1771,6 +1790,11 @@ namespace BearLibTerminal
 	const Encoding<char>& Terminal::GetEncoding() const
 	{
 		return *m_encoding;
+	}
+
+	std::wstring Terminal::GetClipboard()
+	{
+		return m_window->GetClipboard();
 	}
 
 	void Terminal::ConfigureViewport()

@@ -54,6 +54,8 @@ namespace BearLibTerminal
         void ApplySizeHints();
         std::unique_ptr<Impl> m_impl;
     };
+
+    std::wstring GetCocoaPasteboardString();
 }
 
 #endif // __APPLE__
