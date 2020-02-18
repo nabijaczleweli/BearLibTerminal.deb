@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013 Cfyz
+* Copyright (C) 2013-2014 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,17 @@
 
 namespace BearLibTerminal
 {
+	struct Leaf
+	{
+		Leaf();
+		Color color[4];
+		int16_t dx, dy;
+		char32_t code;
+		uint8_t flags;
+		uint8_t reserved;
+		static const uint8_t CornerColored = 0x01;
+	};
+
 	struct Cell
 	{
 		std::vector<Leaf> leafs;
@@ -71,8 +82,6 @@ namespace BearLibTerminal
 
 	struct World
 	{
-		std::map<uint16_t, std::unique_ptr<Tileset>> tilesets;
-		TileContainer tiles;
 		Stage stage;
 		State state;
 	};

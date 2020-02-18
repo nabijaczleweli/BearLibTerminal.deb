@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013-2014 Cfyz
+* Copyright (C) 2013-2015 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -31,23 +31,12 @@ namespace BearLibTerminal
 {
 	struct Event
 	{
-		enum class Domain
-		{
-			Internal,
-			System,    // TK_CLOSE, TK_RESIZE, etc.
-			Keyboard,  // TK_A, TK_0, etc.
-			Mouse      // TK_LBUTTON, TK_MOUSE_MOVE, etc.
-		};
-
-		Domain domain;
 		int code;
 		std::unordered_map<int, int> properties; // Slot -> value map
 
 		Event(int code);
 		Event(int code, std::unordered_map<int, int> properties);
 		int& operator[](int index);
-
-		static Domain GetDomainByCode(int code);
 	};
 }
 

@@ -1,6 +1,6 @@
 #
 # BearLibTerminal
-# Copyright (C) 2013-2014 Cfyz
+# Copyright (C) 2013-2017 Cfyz
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -19,51 +19,65 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-# Release date: 2015-03-24
 
-import sys, ctypes, numbers
+import sys, ctypes, atexit
+from ctypes import c_int, c_uint32, c_char_p, c_wchar_p, POINTER
 
 _version3 = sys.version_info >= (3, 0)
- 
-_library = None
-_possible_library_names = [
-	'BearLibTerminal.dll',     # Generic Windows DLL
-	'./libBearLibTerminal.so', # Local Linux SO
-	'./BearLibTerminal.so',    # Local Linux SO w/o prefix
-	'libBearLibTerminal.so',   # System Linux SO
-	'BearLibTerminal.so'       # System Linux SO w/o prefix 
-]
-for name in _possible_library_names:
-	try:
-		_library = ctypes.CDLL(name)
-		break
-	except OSError:
-		continue
+_integer = int if _version3 else (int, long)
 
-if _library is None:
-	raise RuntimeError("BearLibTerminal library cannot be loaded.")
+def _load_library():
+	from os import path
+	
+	# Figure out where the library binary should be
+	try:
+		# Try to search near the wrapper module
+		module_path = __file__
+	except NameError:
+		# If there is no module (e. g. it a standalone app)
+		# look in the CWD (usually near the executable file)
+		module_path = sys.argv[0]
+	library_path = path.dirname(path.abspath(module_path))
+	
+	# Construct a platform-specific name of the library binary file
+	if 'win32' in sys.platform:
+		library_name = 'BearLibTerminal.dll'
+	elif 'linux' in sys.platform:
+		library_name = 'libBearLibTerminal.so'
+	elif 'darwin' in sys.platform:
+		library_name = 'libBearLibTerminal.dylib'
+	else:
+		raise RuntimeError('Unsupported platform: ' + sys.platform)
+	
+	# Now actually try to load the library binary
+	try:
+		return ctypes.CDLL(library_path + path.sep + library_name)
+	except OSError:
+		raise RuntimeError('BearLibTerminal library cannot be loaded (looked for ' + library_name + ' in ' + library_path + ')')
+
+_library = _load_library()
 
 # wchar_t size may vary
 if ctypes.sizeof(ctypes.c_wchar()) == 4:
 	_wset = _library.terminal_set32
-	_wprint = _library.terminal_print32
-	_wmeasure = _library.terminal_measure32
+	_wprint_ext = _library.terminal_print_ext32
+	_wmeasure_ext = _library.terminal_measure_ext32
 	_read_wstr = _library.terminal_read_str32
 	_color_from_wname = _library.color_from_name32
 	_wget = _library.terminal_get32
 else:
 	_wset = _library.terminal_set16
-	_wprint = _library.terminal_print16
-	_wmeasure = _library.terminal_measure16
+	_wprint_ext = _library.terminal_print_ext16
+	_wmeasure_ext = _library.terminal_measure_ext16
 	_read_wstr = _library.terminal_read_str16
 	_color_from_wname = _library.color_from_name16
 	_wget = _library.terminal_get16
 
 # color/bkcolor accept uint32, color_from_name returns uint32
-_library.terminal_color.argtypes = [ctypes.c_uint32]
-_library.terminal_bkcolor.argtypes = [ctypes.c_uint32]
-_library.color_from_name8.restype = ctypes.c_uint32
-_color_from_wname.restype = ctypes.c_uint32
+_library.terminal_color.argtypes = [c_uint32]
+_library.terminal_bkcolor.argtypes = [c_uint32]
+_library.color_from_name8.restype = c_uint32
+_color_from_wname.restype = c_uint32
 
 def color_from_name(s):
 	if _version3 or isinstance(s, unicode):
@@ -74,51 +88,81 @@ def color_from_name(s):
 def open():
 	if _library.terminal_open() == 0:
 		return False
-	_library.terminal_set8('terminal: encoding=ascii, encoding-affects-put=false')
+	set('terminal.encoding-affects-put=false')
+	# Try to register a terminal ipython integration.
+	try:
+		from IPython.lib import inputhook
+		def bearlibterminal_inputhook():
+			has_input()
+			while not inputhook.stdin_ready():
+				delay(5)
+			return 0
+		inputhook.inputhook_manager.set_inputhook(bearlibterminal_inputhook)
+	except:
+		pass
 	return True
 
+# Try to register a kernel-based ipython/jupyter integration.
+try:
+    from ipykernel.eventloops import register_integration
+    @register_integration('blt')
+    def loop_blt(kernel):
+        interval = int(kernel._poll_interval * 1000) # to milliseconds
+        while True:
+            kernel.do_one_iteration()
+            delay(interval)
+except:
+    pass
+
 close = _library.terminal_close
+close.restype = None
 
 def set(s):
 	if _version3 or isinstance(s, unicode):
-		_wset(s)
+		return _wset(s) == 1
 	else:
-		_library.terminal_set8(s)
+		return _library.terminal_set8(s) == 1
 
 def setf(s, *args):
 	return set(s.format(*args))
 
 refresh = _library.terminal_refresh
+refresh.restype = None
 
 clear = _library.terminal_clear
+clear.restype = None
 
 clear_area = _library.terminal_clear_area
+clear_area.restype = None
 
 crop = _library.terminal_crop
+crop.restype = None
 
 layer = _library.terminal_layer
+layer.restype = None
 
 def color(v):
-	if isinstance(v, numbers.Number):
+	if isinstance(v, _integer):
 		_library.terminal_color(v)
 	else:
 		_library.terminal_color(color_from_name(v))
 
 def bkcolor(v):
-	if isinstance(v, numbers.Number):
+	if isinstance(v, _integer):
 		_library.terminal_bkcolor(v)
 	else:
 		_library.terminal_bkcolor(color_from_name(v))
 
 composition = _library.terminal_composition
+composition.restype = None
 
 def put(x, y, c):
-	if not isinstance(c, numbers.Number):
+	if not isinstance(c, _integer):
 		c = ord(c)
 	_library.terminal_put(x, y, c)
 
 def put_ext(x, y, dx, dy, c, corners=None):
-	if not isinstance(c, numbers.Number):
+	if not isinstance(c, _integer):
 		c = ord(c)
 	if corners is None:
 		_library.terminal_put_ext(x, y, dx, dy, c, None)
@@ -126,7 +170,7 @@ def put_ext(x, y, dx, dy, c, corners=None):
 		for i in range(0, 4):
 			put_ext.corners[i] = corners[i]
 		_library.terminal_put_ext(x, y, dx, dy, c, ctypes.cast(put_ext.corners, ctypes.POINTER(ctypes.c_uint)))
-put_ext.corners = (ctypes.c_uint32 * 4)()
+put_ext.corners = (c_uint32 * 4)()
 
 def pick(x, y, z = 0):
 	return _library.terminal_pick(x, y, z);
@@ -135,21 +179,43 @@ def pick_color(x, y, z = 0):
 	return _library.terminal_pick_color(x, y, z);
 
 pick_bkcolor = _library.terminal_pick_bkcolor
+pick_bkcolor.restype = c_uint32
 
-def print_(x, y, s):
+_aprint_ext = _library.terminal_print_ext8
+_aprint_ext.argtypes = [c_int, c_int, c_int, c_int, c_int, c_char_p, POINTER(c_int), POINTER(c_int)]
+_aprint_ext.restype = None
+_wprint_ext.argtypes = [c_int, c_int, c_int, c_int, c_int, c_wchar_p, POINTER(c_int), POINTER(c_int)]
+_wprint_ext.restype = None
+def puts(x, y, s, width=0, height=0, align=0):
+	out_width = c_int()
+	out_height = c_int()
 	if _version3 or isinstance(s, unicode):
-		return _wprint(x, y, s)
+		_wprint_ext(x, y, width, height, align, s, ctypes.byref(out_width), ctypes.byref(out_height))
 	else:
-		return _library.terminal_print8(x, y, s)
+		_aprint_ext(x, y, width, height, align, s, ctypes.byref(out_width), ctypes.byref(out_height))
+	return (out_width.value, out_height.value)
+
+print_ = puts
+
+if _version3:
+	setattr(sys.modules[__name__], "print", puts)
 
 def printf(x, y, s, *args):
-	return print_(x, y, s.format(*args))
+	return puts(x, y, s.format(*args))
 
-def measure(s):
+_ameasure_ext = _library.terminal_measure_ext8
+_ameasure_ext.argtypes = [c_int, c_int, c_char_p, POINTER(c_int), POINTER(c_int)]
+_ameasure_ext.restype = None
+_wmeasure_ext.argtypes = [c_int, c_int, c_wchar_p, POINTER(c_int), POINTER(c_int)]
+_wmeasure_ext.restype = None
+def measure(s, width=0, height=0):
+	out_width = c_int()
+	out_height = c_int()
 	if _version3 or isinstance(s, unicode):
-		return _wmeasure(s)
+		_wmeasure_ext(width, height, s, ctypes.byref(out_width), ctypes.byref(out_height))
 	else:
-		return _library.terminal_measure8(s)
+		_ameasure_ext(width, height, s, ctypes.byref(out_width), ctypes.byref(out_height))
+	return (out_width.value, out_height.value)
 
 def measuref(s, *args):
 	return measure(s.format(*args))
@@ -160,7 +226,7 @@ def has_input():
 state = _library.terminal_state
 
 def check(state):
-	return _library.terminal_state(state) == 1
+	return _library.terminal_state(state) > 0
 
 read = _library.terminal_read
 
@@ -177,12 +243,15 @@ def read_str(x, y, s, max):
 		return rc, p.value
 
 delay = _library.terminal_delay
+delay.restype = None
 
-_library.terminal_get8.restype = ctypes.c_char_p
-_wget.restype = ctypes.c_wchar_p
+_library.terminal_get8.restype = c_char_p
+_wget.restype = c_wchar_p
 
 def get(s, default_value=None):
-	if _version3 or isinstance(s, unicode):
+	if _version3:
+		return _wget(s, default_value)
+	elif isinstance(s, unicode):
 		return unicode(_wget(s, default_value));
 	else:
 		return str(_library.terminal_get8(s, default_value))
@@ -193,6 +262,10 @@ def color_from_argb(a, r, g, b):
 	result = result * 256 + g
 	result = result * 256 + b
 	return result
+
+@atexit.register
+def _cleanup():
+	close()
 
 # Keyboard scancodes for events/states.
 TK_A                = 0x04
@@ -289,6 +362,7 @@ TK_KP_0             = 0x62
 TK_KP_PERIOD        = 0x63
 TK_SHIFT            = 0x70
 TK_CONTROL          = 0x71
+TK_ALT              = 0x72
 
 # Mouse events/states.
 TK_MOUSE_LEFT       = 0x80 # Buttons
@@ -334,3 +408,12 @@ TK_ON               =    1
 # Input result codes for terminal_read_str function.
 TK_INPUT_NONE       =    0
 TK_INPUT_CANCELLED  =   -1
+
+# Text printing alignment.
+TK_ALIGN_DEFAULT    =    0
+TK_ALIGN_LEFT       =    1
+TK_ALIGN_RIGHT      =    2
+TK_ALIGN_CENTER     =    3
+TK_ALIGN_TOP        =    4
+TK_ALIGN_BOTTOM     =    8
+TK_ALIGN_MIDDLE     =   12

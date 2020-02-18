@@ -1,9 +1,24 @@
 /*
- * DynamicTileset.cpp
- *
- *  Created on: Oct 26, 2013
- *      Author: Cfyz
- */
+* BearLibTerminal
+* Copyright (C) 2013-2016 Cfyz
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files (the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+* of the Software, and to permit persons to whom the Software is furnished to do
+* so, subject to the following conditions:
+*
+* The above copyright notice and this permission notice shall be included in all
+* copies or substantial portions of the Software.
+*
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+* FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+* COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+* IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+* CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+*/
 
 #include "DynamicTileset.hpp"
 #include "Log.hpp"
@@ -15,33 +30,18 @@
 
 namespace BearLibTerminal
 {
-	DynamicTileset::DynamicTileset(TileContainer& container, OptionGroup& group):
-		StronglyTypedReloadableTileset(container)
+	DynamicTileset::DynamicTileset(char32_t offset, OptionGroup& options):
+		Tileset(offset)
 	{
-		if (!group.attributes.count(L"size"))
+		if (!options.attributes.count(L"size"))
 		{
 			throw std::runtime_error("DynamicTileset: 'size' attribute is missing");
 		}
 
-		if (!try_parse(group.attributes[L"size"], m_tile_size))
+		if (!try_parse(options.attributes[L"size"], m_tile_size))
 		{
 			throw std::runtime_error("DynamicTileset: failed to parse 'size' attribute");
 		}
-	}
-
-	void DynamicTileset::Remove() // TODO: move to base class?
-	{
-		for (auto i: m_tiles)
-		{
-			if (m_container.slots.count(i.first) && (void*)m_container.slots[i.first].get() == (void*)i.second.get())
-			{
-				m_container.slots.erase(i.first);
-			}
-
-			m_container.atlas.Remove(i.second);
-		}
-
-		m_tiles.clear();
 	}
 
 	Bitmap MakeBoxLines(Size size, std::vector<int> pattern)
@@ -300,47 +300,12 @@ namespace BearLibTerminal
 		return result;
 	}
 
-	bool DynamicTileset::Save()
-	{
-		int w2 = m_tile_size.width / 2;
-		int h2 = m_tile_size.height / 2;
-
-		// Add Unicode replacement character glyph (required)
-		uint16_t code = kUnicodeReplacementCharacter;
-		auto tile_slot = m_container.atlas.Add(MakeNotACharacterTile(m_tile_size), Rectangle(m_tile_size));
-		tile_slot->offset = Point(-w2, -h2);
-		tile_slot->alignment = TileSlot::Alignment::Center;
-		m_tiles[code] = tile_slot;
-		m_container.slots[code] = tile_slot;
-		LOG(Info, L"Added Unicode replacement character tile (" << m_tile_size << L")");
-	}
-
-	void DynamicTileset::Reload(DynamicTileset&& tileset)
-	{
-		throw std::runtime_error("DynamicTileset is not reloadable");
-	}
-
 	Size DynamicTileset::GetBoundingBoxSize()
 	{
 		return m_tile_size;
 	}
 
-	Size DynamicTileset::GetSpacing()
-	{
-		return Size(1, 1);
-	}
-
-	const Encoding<char>* DynamicTileset::GetCodepage()
-	{
-		return nullptr;
-	}
-
-	Tileset::Type DynamicTileset::GetType()
-	{
-		return Type::Dynamic;
-	}
-
-	bool DynamicTileset::Provides(uint16_t code)
+	bool DynamicTileset::Provides(char32_t code)
 	{
 		// Unicode replacement character
 		if (code == kUnicodeReplacementCharacter) return true;
@@ -389,7 +354,7 @@ namespace BearLibTerminal
 		{0,1,1,1,0, 0,1,1,1,0, 0,1,1,1,1, 0,1,1,1,0, 0,1,1,1,0}, // 2520: Wide top and bottom, single right
 		{0,1,1,1,0, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,1, 0,0,1,0,0}, // 2521: Wide top and right, single bottom
 		{0,0,1,0,0, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,0}, // 2522: Single top, wide right and bottom
-		{0,1,1,1,0, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,1, 0,0,0,0,0}, // 2523: Wide top, right and bottom
+		{0,1,1,1,0, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,1, 0,1,1,1,0}, // 2523: Wide top, right and bottom
 		{0,0,1,0,0, 0,0,1,0,0, 1,1,1,0,0, 0,0,1,0,0, 0,0,1,0,0}, // 2524: Single left, top and bottom
 		{0,0,1,0,0, 1,1,1,0,0, 1,1,1,0,0, 1,1,1,0,0, 0,0,1,0,0}, // 2525: Wide left, single top and bottom
 		{0,1,1,1,0, 0,1,1,1,0, 1,1,1,1,0, 0,0,1,0,0, 0,0,1,0,0}, // 2526: Single left and bottom, wide top
@@ -510,17 +475,16 @@ namespace BearLibTerminal
 		{1, 1.0f-0.125f, 1.0f}     // 2595:▕ RIGHT ONE EIGHTH BLOCK
 	};
 
-	void DynamicTileset::Prepare(uint16_t code)
+	std::shared_ptr<TileInfo> DynamicTileset::Get(char32_t code)
 	{
 		if (!Provides(code))
 		{
 			throw std::runtime_error("DynamicTileset::Prepare: request for a tile which is not provided by this tileset");
 		}
 
-		if (m_tiles.count(code))
-		{
-			m_container.slots[code] = std::dynamic_pointer_cast<Slot>(m_tiles[code]);
-		}
+		auto i = m_cache.find(code);
+		if (i != m_cache.end())
+			return i->second;
 
 		Bitmap tile;
 
@@ -1032,12 +996,14 @@ namespace BearLibTerminal
 			break;
 		}
 
-		if (tile.IsEmpty()) tile = MakeNotACharacterTile(m_tile_size);
+		if (tile.IsEmpty())
+			tile = MakeNotACharacterTile(m_tile_size);
 
-		auto tile_slot = m_container.atlas.Add(tile, Rectangle(m_tile_size));
-		tile_slot->alignment = TileSlot::Alignment::TopLeft;
-		m_tiles[code] = tile_slot;
-		m_container.slots[code] = tile_slot;
-		LOG(Info, L"Added character tile for code " << code);
+		auto tile_ref = std::make_shared<TileInfo>();
+		tile_ref->tileset = this;
+		tile_ref->alignment = TileAlignment::TopLeft;
+		tile_ref->spacing = Size{1, 1};
+		tile_ref->bitmap = tile;
+		return tile_ref;
 	}
 }

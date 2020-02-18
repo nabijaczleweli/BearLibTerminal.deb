@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013 Cfyz
+* Copyright (C) 2013-2016 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -27,13 +27,15 @@
 // Also, gl.h in windows is a bit outdated
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
+#include <windows.h>
 #include <GL/gl.h>
 #undef LoadBitmap // There is a function with same name in WinAPI
 // OpenGL 1.2+
 #define GL_BGRA 0x80E1
 #elif defined(__linux)
 #include <GL/gl.h>
+#elif defined(__APPLE__)
+#include <OpenGL/gl.h>
 #endif
 
 namespace BearLibTerminal

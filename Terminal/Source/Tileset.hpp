@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013 Cfyz
+* Copyright (C) 2013-2016 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -25,63 +25,40 @@
 
 #include "Atlas.hpp"
 #include "OptionGroup.hpp"
-#include "Encoding.hpp"
-#include <unordered_map>
-#include <stdexcept>
-#include <string>
 #include <memory>
 #include <map>
 
 namespace BearLibTerminal
 {
-	struct TileContainer
-	{
-		Atlas atlas;
-		std::unordered_map<uint16_t, std::shared_ptr<Slot>> slots;
-	};
-
 	class Tileset
 	{
 	public:
-		enum class Type {Bitmap, TrueType, Dynamic};
-
-		Tileset(TileContainer& container);
+		Tileset(char32_t offset);
 		virtual ~Tileset();
-		virtual bool Save() = 0;
-		virtual void Remove() = 0;
+		char32_t GetOffset() const;
+		virtual bool Provides(char32_t code);
+		virtual std::shared_ptr<TileInfo> Get(char32_t code);
 		virtual Size GetBoundingBoxSize() = 0;
-		virtual Size GetSpacing() = 0;
-		virtual const Encoding<char>* GetCodepage() = 0;
-		virtual Type GetType() = 0;
-		virtual void Reload(Tileset&& tileset) = 0;
-		virtual bool Provides(uint16_t code) = 0;
-		virtual void Prepare(uint16_t code) = 0;
-		static std::unique_ptr<Tileset> Create(TileContainer& container, OptionGroup& options);
+
+		static const char32_t kFontOffsetMask = 0xFF000000;
+		static const char32_t kCharOffsetMask = 0x00FFFFFF;
+		static std::shared_ptr<Tileset> Create(OptionGroup& options, char32_t offset);
+		static bool IsFontOffset(char32_t offset);
 
 	protected:
-		TileContainer& m_container;
-		std::unordered_map<uint16_t, std::shared_ptr<TileSlot>> m_tiles;
+		char32_t m_offset;
+		std::unordered_map<char32_t, std::shared_ptr<TileInfo>> m_cache;
 	};
 
-	template<typename T> class StronglyTypedReloadableTileset: public Tileset
-	{
-	public:
-		StronglyTypedReloadableTileset(TileContainer& container):
-			Tileset(container)
-		{ }
+	extern std::unordered_map<char32_t, std::shared_ptr<TileInfo>> g_codespace;
 
-		void Reload(Tileset&& tileset)
-		{
-			if (typeid(*this) != typeid(tileset))
-			{
-				throw std::runtime_error("ReloadableTilesetImpl::Reload(Tileset&&): type mismatch");
-			}
+	extern std::map<char32_t, std::shared_ptr<Tileset>> g_tilesets;
 
-			Reload((T&&)tileset);
-		}
+	void AddTileset(std::shared_ptr<Tileset> tileset);
 
-		virtual void Reload(T&& tileset) = 0;
-	};
+	void RemoveTileset(std::shared_ptr<Tileset> tileset);
+
+	void RemoveTileset(char32_t offset);
 }
 
 #endif // BEARLIBTERMINAL_TILESET_HPP
