@@ -1,3 +1,11 @@
+### 0.15.3 (2017-05-14)
+
+- Fix adding sprite tiles to an atlas (closes issue #30).
+- Fix excess generation of 'character replacement' tiles.
+- Fix dynamic tile generation (individual to a font, closes issue #32).
+- Fix configuring several fonts in one `set()` call (closes issue #34).
+- Add `font()` function (select the current font by name, closes issue #33).
+
 ### 0.15.2 (2017-03-12)
 
 - Retrieve clipboard contents via `terminal_get("clipboard")`.

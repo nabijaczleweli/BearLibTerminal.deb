@@ -59,7 +59,6 @@ namespace BearLibTerminal
 	};
 
 	static const int kScaleDefault = 1;
-	static const char32_t kDynamicTilesetOffset = 0xFFFF;
 
 	static int GetInputEventNameByName(const std::wstring& name)
 	{
@@ -270,6 +269,14 @@ namespace BearLibTerminal
 	{
 		CHECK_THREAD("set", 0);
 
+		// XXX: hack.
+		if (value.find(L"log(") == 0)
+		{
+			if (value.length() > 7) // Seven because quotes.
+				LOG(Info, value.substr(5, value.length() - 7));
+			return 1;
+		}
+
 		LOG(Info, "Trying to set \"" << value << "\"");
 		try
 		{
@@ -283,26 +290,16 @@ namespace BearLibTerminal
 		}
 	}
 
-	void Terminal::UpdateDynamicTileset(Size size)
-	{
-		RemoveTileset(kDynamicTilesetOffset);
-		OptionGroup options;
-		options.name = to_string<wchar_t>(kDynamicTilesetOffset);
-		options.attributes[L"_"] = L"dynamic";
-		options.attributes[L"size"] = to_string<wchar_t>(size);
-		AddTileset(Tileset::Create(options, kDynamicTilesetOffset));
-	}
-
 	std::map<std::wstring, int> g_fonts;
 
-	int AllocateFontIndex(std::wstring name)
+	int AllocateFontIndex(std::wstring name, std::map<std::wstring, int>& preallocated_fonts)
 	{
 		// Clean up.
 		for (auto i = g_fonts.begin(); i != g_fonts.end(); )
 		{
 			char32_t font_offset = i->second * 0x1000000;
 			auto j = g_tilesets.lower_bound(font_offset);
-			if ((j->first & Tileset::kFontOffsetMask) != font_offset)
+			if (j == g_tilesets.end() || (j->first & Tileset::kFontOffsetMask) != font_offset)
 			{
 				// The first tileset with offset >= font_offset does not belong to this font.
 				// Meaning there is no tilesets belonging to this font.
@@ -314,13 +311,26 @@ namespace BearLibTerminal
 			}
 		}
 
+		auto contains_value = [](std::map<std::wstring, int>& map, int value)
+		{
+			for (auto kv: map)
+			{
+				if (kv.second == value)
+				{
+					return true;
+				}
+			}
+
+			return false;
+		};
+
 		// Look up first available index.
 		for (int i = 0; ; i++)
 		{
-			if (std::find_if(g_fonts.begin(), g_fonts.end(), [i](std::pair<std::wstring, int> kv){return kv.second == i;}) == g_fonts.end())
+			if (!contains_value(preallocated_fonts, i) && !contains_value(g_fonts, i))
 			{
 				LOG(Info, "New font '" << name << "' -> index " << i);
-				g_fonts[name] = i;
+				preallocated_fonts[name] = i;
 				return i;
 			}
 		}
@@ -328,7 +338,7 @@ namespace BearLibTerminal
 		return -1;
 	}
 
-	char32_t ParseTilesetOffset(std::wstring name)
+	char32_t ParseTilesetOffset(std::wstring name, std::map<std::wstring, int>& preallocated_fonts)
 	{
 		char32_t font_offset = 0;
 		std::wstring font_name = L"main";
@@ -339,18 +349,27 @@ namespace BearLibTerminal
 			name = name.substr(space_pos+1);
 		}
 
-		auto i = g_fonts.find(font_name);
-		if (i != g_fonts.end())
-			font_offset = i->second * 0x01000000;
+		std::map<std::wstring, int>::iterator i;
+		if ((i = g_fonts.find(font_name)) != g_fonts.end() ||
+		    (i = preallocated_fonts.find(font_name)) != preallocated_fonts.end())
+		{
+			font_offset = i->second * Tileset::kFontOffsetMultiplier;
+		}
 		else
-			font_offset = AllocateFontIndex(font_name) * 0x01000000;
+		{
+			font_offset = AllocateFontIndex(font_name, preallocated_fonts) * Tileset::kFontOffsetMultiplier;
+		}
 
 		if (name == L"font")
+		{
 			return font_offset;
+		}
 
 		char32_t tileset_offset = 0;
 		if (!try_parse(name, tileset_offset))
+		{
 			throw std::runtime_error("Failed to parse tileset offset from '" + UTF8Encoding().Convert(name) + "'");
+		}
 
 		return font_offset + tileset_offset;
 	}
@@ -361,10 +380,15 @@ namespace BearLibTerminal
 		if (i != g_codespace.end())
 			return i->second.get();
 
+		char32_t font_low = (code & Tileset::kFontOffsetMask);
+		char32_t font_high = font_low + Tileset::kCharOffsetMask;
+
 		for (auto j = g_tilesets.rbegin(); j != g_tilesets.rend(); ++j)
 		{
-			if (j->first == kDynamicTilesetOffset)
+			if (j->first < font_low || j->first > font_high)
+			{
 				continue;
+			}
 
 			if (j->second->Provides(code))
 			{
@@ -375,18 +399,24 @@ namespace BearLibTerminal
 			}
 		}
 
-		char32_t relative_code = (code & Tileset::kCharOffsetMask);
-		if (relative_code < 0x2500 || relative_code > 0x259F)
-			relative_code = kUnicodeReplacementCharacter;
-
-		auto fallback = g_tilesets.find(kDynamicTilesetOffset);
-		if (fallback == g_tilesets.end())
-			return nullptr;
-
-		auto tile = fallback->second->Get(relative_code);
-		g_codespace[code] = tile;
-		g_atlas.Add(tile);
-		return tile.get();
+		if (IsDynamicTile(code))
+		{
+			if (g_dynamic_tileset)
+			{
+				auto tile = g_dynamic_tileset->Get(code);
+				g_codespace[code] = tile;
+				g_atlas.Add(tile);
+				return tile.get();
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+		else
+		{
+			return GetTileInfo(font_low + kUnicodeReplacementCharacter);
+		}
 	}
 
 	void Terminal::SetOptionsInternal(const std::wstring& value)
@@ -395,11 +425,13 @@ namespace BearLibTerminal
 		Options updated = m_options;
 		std::unordered_map<char32_t, std::shared_ptr<Tileset>> new_tilesets;
 		std::unordered_map<std::wstring, Color> palette_update;
+		std::map<std::wstring, int> preallocated_fonts;
 
 		// Validate options
 		for (auto& group: groups)
 		{
 			LOG(Debug, L"Group \"" << group.name << "\":");
+
 			for (auto attribute: group.attributes)
 			{
 				LOG(Debug, L"* \"" << attribute.first << "\" = \"" << attribute.second << "\"");
@@ -442,7 +474,7 @@ namespace BearLibTerminal
 			}
 			else
 			{
-				char32_t offset = ParseTilesetOffset(group.name);
+				char32_t offset = ParseTilesetOffset(group.name, preallocated_fonts);
 				if (group.attributes[L"_"] == L"none")
 				{
 					// Remove tileset.
@@ -463,6 +495,10 @@ namespace BearLibTerminal
 		}
 
 		// All options and parameters must be validated, may try to apply them
+		for (auto& kv: preallocated_fonts)
+		{
+			g_fonts[kv.first] = kv.second;
+		}
 		for (auto& kv: new_tilesets)
 		{
 			RemoveTileset(kv.first);
@@ -1103,6 +1139,22 @@ namespace BearLibTerminal
 		m_vars[TK_COMPOSITION] = mode;
 	}
 
+	void Terminal::SetFont(std::wstring name)
+	{
+		if (name.empty() || name == L"main")
+		{
+			m_world.state.font_offset = 0;
+		}
+		else
+		{
+			auto i = g_fonts.find(name);
+			if (i != g_fonts.end())
+			{
+				m_world.state.font_offset = i->second * Tileset::kFontOffsetMultiplier;
+			}
+		}
+	}
+
 	void Terminal::PutInternal(int x, int y, int dx, int dy, char32_t code, Color* colors)
 	{
 		if (x < 0 || y < 0 || x >= m_world.stage.size.width || y >= m_world.stage.size.height) return;
@@ -1172,7 +1224,7 @@ namespace BearLibTerminal
 			code = m_encoding->Convert(code);
 		}
 
-		PutInternal(x, y, dx, dy, code, corners);
+		PutInternal(x, y, dx, dy, m_world.state.font_offset + code, corners);
 	}
 
 	int Terminal::Pick(int x, int y, int index)
@@ -1253,12 +1305,11 @@ namespace BearLibTerminal
 
 	Size Terminal::Print(int x0, int y0, int w0, int h0, int align, std::wstring str, bool raw, bool measure_only)
 	{
-		char32_t font_offset = 0;
+		char32_t font_offset = m_world.state.font_offset;
 		bool combine = false;
 		Point offset = Point(0, 0);
 		Size wrap = Size{w0, h0};
-		Color original_fore = m_world.state.color;
-		Color original_back = m_world.state.bkcolor;
+		State original_state = m_world.state;
 
 		int x, y, w;
 
@@ -1340,7 +1391,7 @@ namespace BearLibTerminal
 				}
 				else if (name == L"/color" || name == L"/c")
 				{
-					tag = [&]{m_world.state.color = original_fore;};
+					tag = [&]{m_world.state.color = original_state.color;};
 				}
 				else if ((name == L"bkcolor" || name == L"b") && !params.empty())
 				{
@@ -1349,7 +1400,7 @@ namespace BearLibTerminal
 				}
 				else if (name == L"/bkcolor" || name == L"/b")
 				{
-					tag = [&]{m_world.state.bkcolor = original_back;};
+					tag = [&]{m_world.state.bkcolor = original_state.bkcolor;};
 				}
 				else if (name == L"offset")
 				{
@@ -1558,8 +1609,7 @@ namespace BearLibTerminal
 				y += line.size.height;
 			}
 
-			m_world.state.color = original_fore;
-			m_world.state.bkcolor = original_back;
+			m_world.state = original_state;
 		}
 
 		if (wrap.height)
@@ -2072,6 +2122,7 @@ namespace BearLibTerminal
 		bool layer_scissors_applied = false;
 
 		AtlasTexture* current_texture = nullptr;
+		auto replacement_tile = GetTileInfo(kUnicodeReplacementCharacter);
 
 		glBegin(GL_QUADS);
 		glColor4f(1, 1, 1, 1);
@@ -2100,9 +2151,7 @@ namespace BearLibTerminal
 					for (auto& leaf: layer.cells[i].leafs)
 					{
 						auto i = g_codespace.find(leaf.code);
-						if (i == g_codespace.end())
-							continue;
-						auto tile = i->second.get();
+						auto tile = (i == g_codespace.end()? replacement_tile: i->second.get());
 
 						if (tile->texture != current_texture)
 						{

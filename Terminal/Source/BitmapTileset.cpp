@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013-2016 Cfyz
+* Copyright (C) 2013-2017 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -105,8 +105,8 @@ namespace BearLibTerminal
 		if (!codepage)
 			codepage = GetUnibyteEncoding(L"utf8");
 
-		Size spacing{1, 1};
-		if (options.attributes.count(L"spacing") && !try_parse(options.attributes[L"spacing"], spacing))
+		m_spacing = Size{1, 1};
+		if (options.attributes.count(L"spacing") && !try_parse(options.attributes[L"spacing"], m_spacing))
 			throw std::runtime_error("BitmapTileset: failed to parse 'spacing' attribute");
 
 		TileAlignment alignment = TileAlignment::Unknown;
@@ -172,7 +172,7 @@ namespace BearLibTerminal
 			tile->bitmap = image.Extract(Rectangle{Point{x * source_tile_size.width, y * source_tile_size.height}, source_tile_size});
 			if (resize_to.Area())
 				tile->bitmap = tile->bitmap.Resize(resize_to, resize_filter, resize_mode);
-			tile->spacing = spacing;
+			tile->spacing = m_spacing;
 			tile->alignment = alignment;
 			if (alignment == TileAlignment::Center)
 			{
@@ -196,7 +196,10 @@ namespace BearLibTerminal
 				for (int x = 0; x < columns; x++)
 				{
 					char32_t code = offset + codepage->Convert(y * columns + x);
-					keep_tile(x, y, code);
+					if (code != kUnicodeReplacementCharacter)
+					{
+						keep_tile(x, y, code);
+					}
 				}
 			}
 		}
