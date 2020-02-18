@@ -30,18 +30,18 @@ namespace BearLibTerminal
 			throw std::runtime_error("BitmapTileset: failed to parse base code");
 		}
 
-		if (!group.attributes.count(L"name") || group.attributes[L"name"].empty())
+		if (!group.attributes.count(L"") || group.attributes[L""].empty())
 		{
-			throw std::runtime_error("BitmapTileset: missing or empty 'name' attribute");
+			throw std::runtime_error("BitmapTileset: missing or empty main value attribute");
 		}
 
-		std::wstring name = group.attributes[L"name"];
+		std::wstring name = group.attributes[L""];
 
 		// Try to guess anyway, rewrite if supplied
 		{
 			// Try to guess from filename
 			// Note name copy is intentional, it will be modified
-			std::wstring name = group.attributes[L"name"];
+			std::wstring name = group.attributes[L""];
 			std::wstring l1, l2;
 
 			// Cut off extension
@@ -68,7 +68,7 @@ namespace BearLibTerminal
 
 			if (!l1.empty() || !l2.empty())
 			{
-				LOG(Debug, "Bitmap tileset: guessing encoding and tile size: \"" << group.attributes[L"name"] << "\" -> " << "\"" << l1 << "\", \"" << l2 << "\"");
+				LOG(Debug, "Bitmap tileset: guessing encoding and tile size: \"" << group.attributes[L""] << "\" -> " << "\"" << l1 << "\", \"" << l2 << "\"");
 			}
 
 			Size temp_size;
@@ -119,6 +119,11 @@ namespace BearLibTerminal
 		if (group.attributes.count(L"bbox") && !try_parse(group.attributes[L"bbox"], m_bbox_size))
 		{
 			throw std::runtime_error("BitmapTileset: failed to parse 'bbox' attribute");
+		}
+
+		if (group.attributes.count(L"spacing") && !try_parse(group.attributes[L"spacing"], m_bbox_size))
+		{
+			throw std::runtime_error("BitmapTileset: failed to parse 'spacing' attribute");
 		}
 
 		if (group.attributes.count(L"align") && !try_parse(group.attributes[L"align"], m_alignment))
@@ -272,6 +277,16 @@ namespace BearLibTerminal
 		return m_tile_size;
 	}
 
+	Size BitmapTileset::GetSpacing()
+	{
+		return m_bbox_size;
+	}
+
+	const Encoding<char>* BitmapTileset::GetCodepage()
+	{
+		return m_codepage.get();
+	}
+
 	Tileset::Type BitmapTileset::GetType()
 	{
 		return Type::Bitmap;
@@ -279,7 +294,9 @@ namespace BearLibTerminal
 
 	bool BitmapTileset::Provides(uint16_t code)
 	{
-		int index = m_codepage->Convert((wchar_t)(code - m_base_code)); // FIXME: negative
+		if (code < m_base_code) return false;
+		int index = code - m_base_code;
+		if (m_base_code == 0) index = m_codepage->Convert((wchar_t)index);
 		return (index >= 0 && index <= m_grid_size.Area());
 	}
 
@@ -294,7 +311,10 @@ namespace BearLibTerminal
 				offset = Point(-m_tile_size.width/2, -m_tile_size.height/2);
 			}
 
-			int index = m_codepage->Convert((wchar_t)(code-m_base_code));
+			if (code < m_base_code) return;
+			int index = code - m_base_code;
+			if (m_base_code == 0) index = m_codepage->Convert((wchar_t)index);
+
 			int column = index % m_grid_size.width;
 			int row = (index-column) / m_grid_size.width;
 

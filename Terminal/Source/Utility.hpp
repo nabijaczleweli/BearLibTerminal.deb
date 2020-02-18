@@ -12,6 +12,7 @@
 #include <sstream>
 #include <mutex>
 #include <algorithm>
+#include <memory>
 
 namespace BearLibTerminal
 {
@@ -63,9 +64,14 @@ namespace BearLibTerminal
 		return stream.str();
 	}
 
+	template<typename char_t> bool starts_with(const std::basic_string<char_t>& what, const std::basic_string<char_t>& with)
+	{
+		return what.find(with) == 0;
+	}
+
 	template<typename char_t> bool ends_with(const std::basic_string<char_t>& what, const std::basic_string<char_t>& with)
 	{
-		return what.rfind(with) == what.length() - with.length();
+		return with.length() <= what.length() && what.rfind(with) == what.length() - with.length();
 	}
 
 	template<typename char_t> std::basic_string<char_t> file_extension(const std::basic_string<char_t>& s)
@@ -91,6 +97,28 @@ namespace BearLibTerminal
 	{
 		std::transform(s.begin(), s.end(), s.begin(), ::tolower);
 		return s;
+	}
+
+	// Because strcasecmp/wcscasecmp support is not uniform across platforms.
+	template<typename char_t> bool ci_compare(const std::basic_string<char_t>& s1, const std::basic_string<char_t>& s2)
+	{
+		return to_lower(s1) == to_lower(s2);
+	}
+
+	template<typename char_t> std::basic_string<char_t> trim(const std::basic_string<char_t>& s)
+	{
+		int start = 0, end = s.length()-1;
+
+		while (start < s.length() && ::isspace(s[start]))
+			start++;
+
+		while (end >= 0 && ::isspace(s[end]))
+			end--;
+
+		if (end >= start && (end-start+1) <= (int)s.length())
+			return s.substr(start, end-start+1);
+		else
+			return std::basic_string<char_t>();
 	}
 
 	uint64_t gettime();
@@ -131,6 +159,14 @@ namespace BearLibTerminal
 		T m_sum;
 		size_t m_count;
 	};
+}
+
+namespace std
+{
+	template<typename T, typename... Args> std::unique_ptr<T> make_unique(Args&&... args)
+	{
+		return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
+	}
 }
 
 #endif /* UTILITY_HPP_ */

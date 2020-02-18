@@ -29,6 +29,7 @@
 #include "Options.hpp"
 #include "Encoding.hpp"
 #include "OptionGroup.hpp"
+#include "Log.hpp"
 #include <mutex>
 #include <deque>
 #include <atomic>
@@ -46,17 +47,23 @@ namespace BearLibTerminal
 		void Refresh();
 		void Clear();
 		void Clear(int x, int y, int w, int h);
+		void SetCrop(int x, int y, int w, int h);
 		void SetLayer(int layer_index);
 		void SetForeColor(Color color);
 		void SetBackColor(Color color);
 		void SetComposition(int mode);
-		void Put(int x, int y, wchar_t code);
-		void PutExtended(int x, int y, int dx, int dy, wchar_t code, Color* corners);
-		int Print(int x, int y, const std::wstring& str);
+		void Put(int x, int y, int code);
+		void PutExtended(int x, int y, int dx, int dy, int code, Color* corners);
+		int Pick(int x, int y, int index);
+		Color PickForeColor(int x, int y, int index);
+		Color PickBackColor(int x, int y);
+		int Print(int x, int y, std::wstring str, bool raw, bool measure_only);
 		int HasInput();
 		int GetState(int code);
 		int Read();
 		int ReadString(int x, int y, wchar_t* buffer, int max);
+		int Peek();
+		void Delay(int period);
 		const Encoding8& GetEncoding() const;
 	private:
 		void SetOptionsInternal(const std::wstring& params);
@@ -67,11 +74,11 @@ namespace BearLibTerminal
 		void ValidateOutputOptions(OptionGroup& group, Options& options);
 		void ValidateTerminalOptions(OptionGroup& group, Options& options);
 		void ValidateLoggingOptions(OptionGroup& group, Options& options);
+		bool ParseInputFilter(const std::wstring& s, std::set<int>& out);
 		void ConfigureViewport();
 		void PutInternal(int x, int y, int dx, int dy, wchar_t code, Color* colors);
 		void PrepareFreshCharacters();
 		void ConsumeEvent(Event& event);
-		void ConsumeIrrelevantEvents();
 		bool HasInputInternalUnlocked();
 		Event ReadEvent(int timeout);
 		int ReadStringInternalBlocking(int x, int y, wchar_t* buffer, int max);
@@ -79,10 +86,12 @@ namespace BearLibTerminal
 		void HandleDestroy();
 		int Redraw(bool async);
 		int OnWindowEvent(Event event);
+		void PushEvent(Event event);
 	private:
 		enum state_t {kHidden, kVisible, kClosed} m_state;
 		mutable std::mutex m_lock;
 		mutable std::mutex m_input_lock;
+		std::unique_ptr<Log> m_log; // FIXME: dependency hack
 		std::unique_ptr<Window> m_window;
 		std::deque<Event> m_input_queue;
 		std::condition_variable m_input_condvar;
@@ -95,6 +104,7 @@ namespace BearLibTerminal
 		bool m_show_grid;
 		bool m_viewport_modified;
 		Rectangle m_viewport_scissors;
+		bool m_viewport_scissors_enabled;
 		int m_scale_step;
 		Rectangle m_stage_area;
 		SizeF m_stage_area_factor;

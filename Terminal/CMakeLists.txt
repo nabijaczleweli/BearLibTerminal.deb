@@ -25,11 +25,6 @@ if (WIN32)
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static")
 else()
 	set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libgcc")
-	if (${BITNESS} EQUAL 32)
-		# 32-bit build can take advantage of greater compatibility by statically linking to libstdc++.
-		# It is impossible to do that on 64-bit because of -fPIC requirement. 
-		set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -static-libstdc++")
-	endif()
 endif()
 
 find_package(OpenGL)
@@ -47,6 +42,8 @@ target_link_libraries(BearLibTerminal ${OPENGL_gl_LIBRARY})
 if(WIN32)
 	target_link_libraries(BearLibTerminal winmm.lib)
 	target_link_libraries(BearLibTerminal ${PROJECT_SOURCE_DIR}/Resource/Terminal-${BITNESS}bit.res)
+else()
+	target_link_libraries(BearLibTerminal pthread)
 endif()
 
 set(OUTPUT_DIR ${CMAKE_SOURCE_DIR}/Output/${CMAKE_SYSTEM_NAME}${BITNESS})

@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <iostream>
+#include "Config.hpp"
 
 // Internal usage
 #define TK_CLIENT_WIDTH  0xF0
@@ -41,6 +42,119 @@ namespace BearLibTerminal
 
 	static int kScaleDefault = 1;
 
+	static int GetInputEventNameByName(const std::wstring& name)
+	{
+		static std::map<std::wstring, int> mapping =
+		{
+			{L"a", TK_A},
+			{L"b", TK_B},
+			{L"c", TK_C},
+			{L"d", TK_D},
+			{L"e", TK_E},
+			{L"f", TK_F},
+			{L"g", TK_G},
+			{L"h", TK_H},
+			{L"i", TK_I},
+			{L"j", TK_G},
+			{L"k", TK_K},
+			{L"l", TK_L},
+			{L"m", TK_M},
+			{L"n", TK_N},
+			{L"o", TK_O},
+			{L"p", TK_P},
+			{L"q", TK_Q},
+			{L"r", TK_R},
+			{L"s", TK_S},
+			{L"t", TK_T},
+			{L"u", TK_U},
+			{L"v", TK_V},
+			{L"w", TK_W},
+			{L"x", TK_X},
+			{L"y", TK_Y},
+			{L"z", TK_Z},
+			{L"1", TK_1},
+			{L"2", TK_2},
+			{L"3", TK_3},
+			{L"4", TK_4},
+			{L"5", TK_5},
+			{L"6", TK_6},
+			{L"7", TK_7},
+			{L"8", TK_8},
+			{L"9", TK_9},
+			{L"0", TK_0},
+			{L"return", TK_ENTER},
+			{L"enter", TK_ENTER},
+			{L"escape", TK_ESCAPE},
+			{L"backspace", TK_BACKSPACE},
+			{L"tab", TK_TAB},
+			{L"space", TK_SPACE},
+			{L"minus", TK_MINUS},
+			{L"equals", TK_EQUALS},
+			{L"lbracket", TK_LBRACKET},
+			{L"rbracket", TK_RBRACKET},
+			{L"backslash", TK_BACKSLASH},
+			{L"semicolon", TK_SEMICOLON},
+			{L"apostrophe", TK_APOSTROPHE},
+			{L"grave", TK_GRAVE},
+			{L"comma", TK_COMMA},
+			{L"period", TK_PERIOD},
+			{L"slash", TK_SLASH},
+			{L"f1", TK_F1},
+			{L"f2", TK_F2},
+			{L"f3", TK_F3},
+			{L"f4", TK_F4},
+			{L"f5", TK_F5},
+			{L"f6", TK_F6},
+			{L"f7", TK_F7},
+			{L"f8", TK_F8},
+			{L"f9", TK_F9},
+			{L"f10", TK_F10},
+			{L"f11", TK_F11},
+			{L"f12", TK_F12},
+			{L"pause", TK_PAUSE},
+			{L"insert", TK_INSERT},
+			{L"home", TK_HOME},
+			{L"pageup", TK_PAGEUP},
+			{L"delete", TK_DELETE},
+			{L"end", TK_END},
+			{L"pagedown", TK_PAGEDOWN},
+			{L"right", TK_RIGHT},
+			{L"left", TK_LEFT},
+			{L"down", TK_DOWN},
+			{L"up", TK_UP},
+			{L"kp-divide", TK_KP_DIVIDE},
+			{L"kp-multiply", TK_KP_MULTIPLY},
+			{L"kp-minus", TK_KP_MINUS},
+			{L"kp-plus", TK_KP_PLUS},
+			{L"kp-enter", TK_KP_ENTER},
+			{L"kp-1", TK_KP_1},
+			{L"kp-2", TK_KP_2},
+			{L"kp-3", TK_KP_3},
+			{L"kp-4", TK_KP_4},
+			{L"kp-5", TK_KP_5},
+			{L"kp-6", TK_KP_6},
+			{L"kp-7", TK_KP_7},
+			{L"kp-8", TK_KP_8},
+			{L"kp-9", TK_KP_9},
+			{L"kp-0", TK_KP_0},
+			{L"kp-period", TK_KP_PERIOD},
+			{L"shift", TK_SHIFT},
+			{L"control", TK_CONTROL},
+			{L"mouse-left", TK_MOUSE_LEFT},
+			{L"mouse-right", TK_MOUSE_RIGHT},
+			{L"mouse-middle", TK_MOUSE_MIDDLE},
+			{L"mouse-x1", TK_MOUSE_X1},
+			{L"mouse-x2", TK_MOUSE_X2},
+			{L"mouse-move", TK_MOUSE_MOVE},
+			{L"mouse-scroll", TK_MOUSE_SCROLL},
+			{L"close", TK_CLOSE},
+			{L"resized", TK_RESIZED}
+		};
+
+		auto i = mapping.find(name);
+		return i == mapping.end()? 0: i->second;
+	}
+
 	Terminal::Terminal():
 		m_state{kHidden},
 		m_vars{},
@@ -48,8 +162,10 @@ namespace BearLibTerminal
 		m_viewport_modified{false},
 		m_scale_step(kScaleDefault)
 	{
-		// Reset logger (this is terrible)
-		g_logger = std::unique_ptr<Log>(new Log());
+		// Synchronize log settings (logger reads them from config file but they may be left default).
+		m_options.log_filename = Log::Instance().GetFile();
+		m_options.log_level = Log::Instance().GetLevel();
+		m_options.log_mode = Log::Instance().GetMode();
 
 		// Try to create window
 		m_window = Window::Create();
@@ -57,6 +173,22 @@ namespace BearLibTerminal
 
 		// Default parameters
 		SetOptionsInternal(L"window: size=80x25, icon=default; font: default; terminal.encoding=utf8");
+
+		// Apply parameters from configuration file:
+		// Each group (line) is applied separately to allow some error resilience.
+		LOG(Info, "Applying options from configuration file, if any");
+		std::map<std::wstring, std::wstring> groups;
+		for (auto& pair: Config::Instance().List(L"ini.bearlibterminal"))
+		{
+			// TODO: use some more readable "split" function
+			std::wstring group = pair.first.substr(0, pair.first.find(L'.'));
+			std::wstring property = group.length() >= pair.first.length()-1?
+				L"name": pair.first.substr(group.length()+1);
+			groups[group] += group + L"." + property + L"=" + pair.second + L";";
+		}
+		for (auto& pair: groups)
+			SetOptions(pair.second);
+		LOG(Info, "Terminal initialization complete");
 	}
 
 	Terminal::~Terminal()
@@ -145,7 +277,7 @@ namespace BearLibTerminal
 
 		OptionGroup options;
 		options.name = L"0xFFFF";
-		options.attributes[L"name"] = L"dynamic";
+		options.attributes[L""] = L"dynamic";
 		options.attributes[L"size"] = to_string<wchar_t>(size);
 
 		tileset = Tileset::Create(m_world.tiles, options);
@@ -156,7 +288,7 @@ namespace BearLibTerminal
 	{
 		std::lock_guard<std::mutex> guard(m_lock);
 
-		auto groups = ParseOptions(value);
+		auto groups = ParseOptions2(value);
 		Options updated = m_options;
 		std::map<uint16_t, std::unique_ptr<Tileset>> new_tilesets;
 
@@ -189,6 +321,14 @@ namespace BearLibTerminal
 			{
 				ValidateLoggingOptions(group, updated);
 			}
+			else if (starts_with(group.name, std::wstring(L"ini.")))
+			{
+				for (auto& i: group.attributes)
+				{
+					// XXX: Just use section-property-value
+					Config::Instance().Set(group.name + L"." + i.first, i.second);
+				}
+			}
 			else
 			{
 				uint16_t base_code = 0; // Basic font base_code is 0
@@ -218,9 +358,9 @@ namespace BearLibTerminal
 		}
 
 		// Such implementation is awful. Should use some global (external library?) instance.
-		if (updated.log_filename != m_options.log_filename) g_logger->SetFile(updated.log_filename);
-		if (updated.log_level != m_options.log_level) g_logger->SetLevel(updated.log_level);
-		if (updated.log_mode != m_options.log_mode) g_logger->SetMode(updated.log_mode);
+		if (updated.log_filename != m_options.log_filename) Log::Instance().SetFile(updated.log_filename);
+		if (updated.log_level != m_options.log_level) Log::Instance().SetLevel(updated.log_level);
+		if (updated.log_mode != m_options.log_mode) Log::Instance().SetMode(updated.log_mode);
 
 		if (updated.terminal_encoding != m_options.terminal_encoding)
 		{
@@ -234,6 +374,7 @@ namespace BearLibTerminal
 
 		// Apply on per-option basis
 		bool viewport_size_changed = false;
+		bool cell_size_changed = false;
 
 		if (updated.window_title != m_options.window_title)
 		{
@@ -248,6 +389,13 @@ namespace BearLibTerminal
 		if (updated.window_resizeable != m_options.window_resizeable)
 		{
 			m_window->SetResizeable(updated.window_resizeable);
+
+			if (updated.window_resizeable)
+			{
+				// User resize cancels client-size
+				// This one handles client-size set before resizeable
+				updated.window_client_size = Size();
+			}
 		}
 
 		if (updated.window_resizeable && m_scale_step != kScaleDefault)
@@ -260,6 +408,8 @@ namespace BearLibTerminal
 		// If the size of cell has changed -OR- new basic tileset has been specified
 		if (updated.window_cellsize != m_options.window_cellsize || new_tilesets.count(0))
 		{
+			cell_size_changed = true;
+
 			// Refresh stage.state.cellsize
 			m_world.state.cellsize = updated.window_cellsize;
 
@@ -290,6 +440,27 @@ namespace BearLibTerminal
 			LOG(Debug, L"SetOptions: new cell size is " << m_world.state.cellsize);
 		}
 
+		// Manual size modification cancels client-size
+		if (updated.window_size != m_options.window_size)
+		{
+			updated.window_client_size = Size();
+		}
+
+		if (updated.window_client_size != m_options.window_client_size ||
+		   (m_options.window_client_size.Area() > 0 && cell_size_changed)) // cellsize changed when client-size is already set
+		{
+			if (updated.window_client_size.Area() > 0)
+			{
+				auto sizef = updated.window_client_size/m_world.state.cellsize.As<float>();
+				updated.window_size = std::floor(sizef).As<int>();
+				if (updated.window_size.Area() <= 0)
+					updated.window_size = Size(1, 1);
+			}
+
+			m_options.window_client_size = updated.window_client_size;
+			viewport_size_changed = true;
+		}
+
 		if (updated.window_size != m_options.window_size)
 		{
 			// Update window size: resize the stage
@@ -309,7 +480,9 @@ namespace BearLibTerminal
 		{
 			// Resize window object
 			float scale_factor = kScaleSteps[m_scale_step];
-			Size viewport_size = m_world.stage.size * m_world.state.cellsize * scale_factor;
+			Size viewport_size = m_options.window_client_size.Area() > 0? // client-size overrides viewport dimensions
+				m_options.window_client_size:
+				m_world.stage.size * m_world.state.cellsize * scale_factor;
 			m_vars[TK_CLIENT_WIDTH] = viewport_size.width;
 			m_vars[TK_CLIENT_HEIGHT] = viewport_size.height;
 			m_window->SetSizeHints(m_world.state.cellsize*scale_factor, updated.window_minimum_size);
@@ -330,6 +503,35 @@ namespace BearLibTerminal
 		//*/
 
 		m_options = updated;
+
+		// Synchronize options struct with configuration cache (sys.group.option).
+		auto bool_to_wstring = [](bool flag) {return flag? L"true": L"false";};
+		auto size_to_wstring = [](Size size) {return size.Area()? to_string<wchar_t>(size): std::wstring(L"auto");};
+		auto& C = Config::Instance();
+		// terminal
+		C.Set(L"terminal.encoding", m_options.terminal_encoding);
+		C.Set(L"terminal.encoding-affects-put", bool_to_wstring(m_options.terminal_encoding_affects_put));
+		// window
+		C.Set(L"window.size", size_to_wstring(m_options.window_size));
+		C.Set(L"window.cellsize", size_to_wstring(m_options.window_cellsize));
+		C.Set(L"window.client-size", size_to_wstring(m_options.window_client_size));
+		C.Set(L"window.title", m_options.window_title);
+		C.Set(L"window.icon", m_options.window_icon);
+		C.Set(L"window.resizeable", bool_to_wstring(m_options.window_resizeable));
+		C.Set(L"window.minimum-size", size_to_wstring(m_options.window_minimum_size));
+		C.Set(L"window.fullscreen", bool_to_wstring(m_options.window_toggle_fullscreen)); // WTF
+		// input
+		C.Set(L"input.precise-mouse", bool_to_wstring(m_options.input_precise_mouse));
+		//C.Set(L"input.filter", m_options.input_filter_str); // FIXME
+		C.Set(L"input.cursor-symbol", std::wstring(1, (wchar_t)m_options.input_cursor_symbol));
+		C.Set(L"input.cursor-blink-rate", to_string<wchar_t>(m_options.input_cursor_blink_rate));
+		C.Set(L"input.mouse-cursor", bool_to_wstring(m_options.input_mouse_cursor));
+		// output
+		C.Set(L"input.vsync", bool_to_wstring(m_options.output_vsync));
+		// log
+		C.Set(L"input.file", m_options.log_filename);
+		C.Set(L"input.level", to_string<wchar_t>(m_options.log_level));
+		C.Set(L"input.mode", to_string<wchar_t>(m_options.log_mode));
 	}
 
 	void Terminal::ValidateTerminalOptions(OptionGroup& group, Options& options)
@@ -339,6 +541,11 @@ namespace BearLibTerminal
 		if (group.attributes.count(L"encoding"))
 		{
 			options.terminal_encoding = group.attributes[L"encoding"];
+		}
+
+		if (group.attributes.count(L"encoding-affects-put"))
+		{
+			try_parse<bool>(group.attributes[L"encoding-affects-put"], options.terminal_encoding_affects_put);
 		}
 	}
 
@@ -378,6 +585,23 @@ namespace BearLibTerminal
 			}
 
 			options.window_cellsize = value;
+		}
+
+		if (group.attributes.count(L"client-size"))
+		{
+			Size value;
+
+			if (group.attributes[L"client-size"] != L"auto" && !try_parse(group.attributes[L"client-size"], value))
+			{
+				throw std::runtime_error("window.client-size value cannot be parsed");
+			}
+
+			if (value.width < 0 || value.height < 0)
+			{
+				throw std::runtime_error("window.client-size value is out of range");
+			}
+
+			options.window_client_size = value;
 		}
 
 		if (group.attributes.count(L"title"))
@@ -435,19 +659,15 @@ namespace BearLibTerminal
 			throw std::runtime_error("input.precise-mouse cannot be parsed");
 		}
 
+		// TODO: deprecated
 		if (group.attributes.count(L"sticky-close") && !try_parse(group.attributes[L"sticky-close"], options.input_sticky_close))
 		{
 			throw std::runtime_error("input.sticky-close cannot be parsed");
 		}
 
-		if (group.attributes.count(L"keyboard") && !try_parse(group.attributes[L"keyboard"], options.input_keyboard))
+		if (group.attributes.count(L"filter") && !ParseInputFilter(group.attributes[L"filter"], options.input_filter))
 		{
-			throw std::runtime_error("input.keyboard cannot be parsed");
-		}
-
-		if (group.attributes.count(L"mouse") && !try_parse(group.attributes[L"mouse"], options.input_mouse))
-		{
-			throw std::runtime_error("input.mouse cannot be parsed");
+			throw std::runtime_error("input.filter cannot be parsed");
 		}
 
 		if (group.attributes.count(L"cursor-symbol") && !try_parse(group.attributes[L"cursor-symbol"], options.input_cursor_symbol))
@@ -468,18 +688,117 @@ namespace BearLibTerminal
 		}
 	}
 
+	bool Terminal::ParseInputFilter(const std::wstring& s, std::set<int>& out)
+	{
+		// s: list of case-insensitive input event names separated by a comma.
+		// macro names: keyboard, mouse
+
+		std::set<int> result;
+
+		auto add = [&result](int code, bool release_too)
+		{
+			result.insert(code);
+
+			if (release_too)
+				result.insert(code | TK_KEY_RELEASED);
+		};
+
+		for (size_t start = 0, end = 0; start < s.length(); )
+		{
+			end = s.find(L",", start);
+			if (end == std::wstring::npos) end = s.length();
+
+			if (end > start)
+			{
+				std::wstring name = trim(s.substr(start, end-start));
+				for (auto& c: name) if (c == L'_') c = L'-';
+
+				bool release_too = false;
+				if (!name.empty() && name.back() == L'+')
+				{
+					release_too = true;
+					name.resize(name.length()-1);
+				}
+
+				if (!name.empty())
+				{
+					if (name == L"false")
+					{
+						result.clear();
+					}
+					else if (name == L"system")
+					{
+						add(TK_CLOSE, release_too);
+						add(TK_RESIZED, release_too);
+					}
+					else if (name == L"keyboard")
+					{
+						for (int i = TK_A; i <= TK_CONTROL; i++)
+							add(i, release_too);
+					}
+					else if (name == L"arrows")
+					{
+						for (int i = TK_RIGHT; i <= TK_UP; i++)
+							add(i, release_too);
+					}
+					else if (name == L"keypad")
+					{
+						for (int i = TK_KP_DIVIDE; i <= TK_KP_PERIOD; i++)
+							add(i, release_too);
+					}
+					else if (name == L"mouse")
+					{
+						for (int i = TK_MOUSE_LEFT; i <= TK_MOUSE_X2; i++)
+							add(i, release_too);
+
+						add(TK_MOUSE_MOVE, false);
+						add(TK_MOUSE_SCROLL, false);
+					}
+					else if (int code = GetInputEventNameByName(name))
+					{
+						add(code, release_too);
+					}
+					else
+					{
+						// Maybe, shortened list of alphanumeric keys?
+						bool correct = true;
+
+						for (auto& c: name) // TODO: shorter check
+						{
+							if (!::isalpha((int)c) && !::isdigit((int)c))
+							{
+								correct = false;
+								break;
+							}
+						}
+
+						if (correct)
+						{
+							for (auto& c: name)
+							{
+								add(GetInputEventNameByName(std::wstring(1, c)), release_too);
+							}
+						}
+					}
+				}
+			}
+
+			start = end+1;
+		}
+
+		out = result;
+
+		return true;
+	}
+
 	void Terminal::ValidateOutputOptions(OptionGroup& group, Options& options)
 	{
-		// Possible options: postformatting, synchronous, vsync
+		// Possible options: postformatting, vsync
 
+		// TODO: deprecated
 		if (group.attributes.count(L"postformatting") && !try_parse(group.attributes[L"postformatting"], options.output_postformatting))
 		{
 			throw std::runtime_error("output.postformatting cannot be parsed");
-		}
-
-		if (group.attributes.count(L"asynchronous") && !try_parse(group.attributes[L"asynchronous"], options.output_asynchronous))
-		{
-			throw std::runtime_error("output.asynchronous cannot be parsed");
 		}
 
 		if (group.attributes.count(L"vsync") && !try_parse(group.attributes[L"vsync"], options.output_vsync))
@@ -609,6 +928,8 @@ namespace BearLibTerminal
 				{
 					cell.leafs.clear();
 				}
+
+				layer.crop = Rectangle();
 			}
 		}
 
@@ -639,6 +960,12 @@ namespace BearLibTerminal
 				}
 			}
 		}
+	}
+
+	void Terminal::SetCrop(int x, int y, int w, int h)
+	{
+		m_world.stage.backbuffer.layers[m_world.state.layer].crop =
+			Rectangle(m_world.stage.size).Intersection(Rectangle(x, y, w, h));
 	}
 
 	void Terminal::SetLayer(int layer_index)
@@ -732,41 +1059,203 @@ namespace BearLibTerminal
 		}
 	}
 
-	void Terminal::Put(int x, int y, wchar_t code)
+	void Terminal::Put(int x, int y, int code)
 	{
-		PutInternal(x, y, 0, 0, code, nullptr);
+		PutExtended(x, y, 0, 0, code, nullptr);
 	}
 
-	void Terminal::PutExtended(int x, int y, int dx, int dy, wchar_t code, Color* corners)
+	void Terminal::PutExtended(int x, int y, int dx, int dy, int code, Color* corners)
 	{
+		if (m_options.terminal_encoding_affects_put)
+		{
+			code = m_encoding->Convert(code);
+		}
+
 		PutInternal(x, y, dx, dy, code, corners);
 	}
 
-	int Terminal::Print(int x0, int y0, const std::wstring& s)
+	int Terminal::Pick(int x, int y, int index)
 	{
-		int x = x0, y = y0;
-		int printed = 0;
-		uint16_t base = 0;
-		Encoding<char>* codepage = nullptr;
-		bool combine = false;
-		Size spacing{1, 1};
-		Point offset{0, 0};
+		if (x < 0 || y < 0 || x >= m_world.stage.size.width || y >= m_world.stage.size.height) return 0;
 
-		Color original_color = m_world.state.color;
-		Color original_bkcolor = m_world.state.bkcolor;
+		int cell_index = y * m_world.stage.size.width + x;
+		auto& cell = m_world.stage.backbuffer.layers[m_world.state.layer].cells[cell_index];
+		wchar_t code = (index >= 0 && index < (int)cell.leafs.size())? (int)cell.leafs[index].code: 0;
 
-		Size size = m_world.stage.size;
+		// Must take into account possible terminal.encoding codepage.
+		int translated = m_encoding->Convert(code);
+		return translated >= 0? translated: (int)code;
+	}
 
-		const auto put_and_increment = [&](int code)
+	Color Terminal::PickForeColor(int x, int y, int index)
+	{
+		if (x < 0 || y < 0 || x >= m_world.stage.size.width || y >= m_world.stage.size.height) return Color();
+
+		int cell_index = y * m_world.stage.size.width + x;
+		auto& cell = m_world.stage.backbuffer.layers[m_world.state.layer].cells[cell_index];
+		return (index >= 0 && index < (int)cell.leafs.size())? cell.leafs[index].color[0]: Color();
+	}
+
+	Color Terminal::PickBackColor(int x, int y)
+	{
+		if (x < 0 || y < 0 || x >= m_world.stage.size.width || y >= m_world.stage.size.height) return Color();
+
+		int cell_index = y * m_world.stage.size.width + x;
+		return m_world.stage.backbuffer.background[cell_index];
+	}
+
+	struct Alignment
+	{
+		Alignment();
+
+		enum // FIXME: enum class
 		{
-			// Convert from unicode to tileset codepage
-			if (codepage)
+			Left,
+			Center,
+			Right,
+			Top,
+			Bottom
+		}
+		horisontal, vertical;
+	};
+
+	Alignment::Alignment():
+		horisontal(Left),
+		vertical(Top)
+	{ }
+
+	bool try_parse(const std::wstring& s, Alignment& out)
+	{
+		size_t hyphen_pos = s.find(L'-');
+
+		// FIXME: rewrite this mess
+		std::wstring vert = hyphen_pos != std::wstring::npos? s.substr(0, hyphen_pos): std::wstring();
+		std::wstring hor = hyphen_pos != std::wstring::npos? (hyphen_pos < s.length()-1? (s.substr(hyphen_pos+1)): std::wstring()): s;
+
+		Alignment result;
+
+		if (vert == L"center")
+		{
+			result.vertical = Alignment::Center;
+		}
+		else if (vert == L"bottom")
+		{
+			result.vertical = Alignment::Bottom;
+		}
+
+		if (hor == L"center")
+		{
+			result.horisontal = Alignment::Center;
+		}
+		else if (hor == L"right")
+		{
+			result.horisontal = Alignment::Right;
+		}
+
+		out = result;
+		return true;
+	}
+
+	struct Line
+	{
+		struct Symbol
+		{
+			Symbol();
+			Symbol(int code);
+			Symbol(int code, Size spacing);
+			int code;
+			Size spacing;
+		};
+
+		void UpdateSize();
+		std::vector<Symbol> symbols;
+		Size size;
+	};
+
+	Line::Symbol::Symbol():
+		code(0)
+	{ }
+
+	Line::Symbol::Symbol(int code):
+		code(code)
+	{ }
+
+	Line::Symbol::Symbol(int code, Size spacing):
+		code(code),
+		spacing(spacing)
+	{ }
+
+	void Line::UpdateSize()
+	{
+		size = Size(0, 1);
+		for (auto& symbol: symbols)
+		{
+			if (symbol.code <= 0)
 			{
-				code = codepage->Convert((wchar_t)code);
+				continue;
 			}
 
-			// Offset tile index
-			if (code >= 0)
+			size.width += symbol.spacing.width;
+			size.height = std::max(size.height, symbol.spacing.height);
+		}
+	}
+
+	int Terminal::Print(int x0, int y0, std::wstring str, bool raw, bool measure_only)
+	{
+		uint16_t base = 0;
+		const Encoding<char>* codepage = nullptr;
+		bool combine = false;
+		Point offset = Point(0, 0);
+		Size wrap = Size(0, 0);
+		Alignment alignment;
+		Color original_fore = m_world.state.color;
+		Color original_back = m_world.state.bkcolor;
+
+		int x, y, w;
+
+		std::vector<std::function<void()>> tags;
+		std::list<Line> lines;
+		lines.emplace_back();
+
+		auto GetTileSpacing = [&](wchar_t code) -> Size // TODO: GetResponsibleTileset?
+		{
+			for (auto i = m_world.tilesets.rbegin(); ; i++)
+			{
+				if (i->first <= code)
+				{
+					return i->second->GetSpacing();
+				}
+			}
+
+			return Size(1, 1);
+		};
+
+		auto GetTileRelativeIndex = [&](wchar_t code) -> int
+		{
+			for (auto i = m_world.tilesets.rbegin(); ; i++)
+			{
+				if (i->first <= code)
+				{
+					return code - i->first;
+				}
+			}
+
+			return 0;
+		};
+
+		auto AppendSymbol = [&](wchar_t code)
+		{
+			if (code == 0)
+			{
+				return;
+			}
+
+			if (codepage)
+			{
+				code = codepage->Convert(code);
+			}
+
+			if (code > 0)
 			{
 				code += base;
 			}
@@ -777,90 +1266,117 @@ namespace BearLibTerminal
 
 			if (combine)
 			{
-				if (x >= x0+spacing.width)
+				tags.push_back([&, code]
 				{
-					int composition = m_world.state.composition;
+					if (w == -1) return;
+					auto saved = m_world.state.composition;
 					m_world.state.composition = TK_ON;
-					x -= spacing.width;
-					PutInternal(x, y, offset.x, offset.y, code, nullptr);
-					m_world.state.composition = composition;
-				}
+					PutInternal(w, y, offset.x, offset.y, code, nullptr);
+					m_world.state.composition = saved;
+				});
+				lines.back().symbols.emplace_back(-(int)(tags.size()-1));
 				combine = false;
 			}
 			else
 			{
-				PutInternal(x, y, offset.x, offset.y, code, nullptr);
+				lines.back().symbols.emplace_back((int)code, GetTileSpacing(code));
 			}
-
-			x += spacing.width;
-			printed += 1;
 		};
 
-		const auto apply_tag = [&](const std::wstring& s, size_t begin, size_t end)
+		for (size_t i = 0; i < str.length(); i++)
 		{
-			if (s[begin+1] == L'/')
+			wchar_t c = str[i];
+
+			if (c == L'[' && !raw && m_options.output_postformatting) // tag start
 			{
-				// Cancel tag: [/name]
+				if (++i >= str.length()) // malformed
+				{
+					continue;
+				}
+				if (str[i] == L'[') // escaped left bracket
+				{
+					AppendSymbol(L'[');
+					continue;
+				}
 
-				std::wstring name = s.substr(begin+2, end-(begin+2));
+				size_t closing_bracket_pos = str.find(L']', i);
+				if (closing_bracket_pos == std::wstring::npos) // malformed
+				{
+					continue;
+				}
 
-				if (name == L"color")
+				size_t params_pos = str.find(L'=', i);
+				params_pos = std::min(closing_bracket_pos, (params_pos == std::wstring::npos)? str.length(): params_pos);
+
+				std::wstring name = str.substr(i, params_pos-i);
+				std::wstring params = (params_pos < closing_bracket_pos)? str.substr(params_pos+1, closing_bracket_pos-(params_pos+1)): std::wstring();
+				uint16_t arbitrary_code = 0;
+
+				std::function<void()> tag;
+
+				if ((name == L"color" || name == L"c") && !params.empty())
 				{
-					m_world.state.color = original_color;
+					color_t color = Palette::Instance[params];
+					tag = [&, color]{m_world.state.color = color;};
 				}
-				else if (name == L"bkcolor")
+				else if (name == L"/color" || name == L"/c")
 				{
-					m_world.state.bkcolor = original_bkcolor;
+					tag = [&]{m_world.state.color = original_fore;};
 				}
-				else if (name == L"base")
+				else if ((name == L"bkcolor" || name == L"b") && !params.empty())
 				{
-					base = 0;
-					codepage = nullptr;
+					color_t color = Palette::Instance[params];
+					tag = [&, color]{m_world.state.bkcolor = color;};
 				}
-				else if (name == L"spacing")
+				else if (name == L"/bkcolor" || name == L"/b")
 				{
-					spacing = Size{1, 1};
+					tag = [&]{m_world.state.bkcolor = original_back;};
 				}
 				else if (name == L"offset")
 				{
-					offset = Point{0, 0};
+					Point value = parse<Point>(params);
+					tag = [&offset, value]{offset = value;};
 				}
-			}
-			else
-			{
-				// Set tag: [name] or [name=value]
-				std::wstring name, value;
-
-				size_t n_equals = s.find(L'=', begin);
-				if (n_equals == std::wstring::npos || n_equals > end-1)
+				else if (name == L"/offset")
 				{
-					name = s.substr(begin+1, end-(begin+1));
+					tag = [&offset]{offset = Point(0, 0);};
 				}
-				else
+				else if (name == L"+")
 				{
-					name = s.substr(begin+1, n_equals-(begin+1));
-					value = s.substr(n_equals+1, end-(n_equals+1));
+					combine = true;
 				}
-
-				if (name.length() == 0) return;
-
-				if (name == L"color")
+				else if (name == L"font" || name == L"base")
 				{
-					m_world.state.color = Palette::Instance[value];
-				}
-				else if (name == L"bkcolor")
-				{
-					m_world.state.bkcolor = Palette::Instance[value];
-				}
-				else if (name == L"base")
-				{
-					// Optional codepage: "U+E100:1251"
-					size_t n_colon = value.find(L":");
-					if (n_colon != std::wstring::npos && n_colon > 0 && n_colon < value.length()-1)
+					size_t colon_pos = params.find(L':');
+					std::wstring codepage_name;
+					if (colon_pos != std::wstring::npos && colon_pos > 0 && colon_pos < params.length()-1)
 					{
-						std::wstring codepage_name = value.substr(n_colon+1);
-						value = value.substr(0, n_colon);
+						codepage_name = params.substr(colon_pos+1);
+						params = params.substr(0, colon_pos);
+					}
 
+					if (!try_parse(params, base))
+					{
+						base = 0;
+						codepage = nullptr;
+						continue;
+					}
+
+					if (codepage_name.empty())
+					{
+						// Use tileset codepage
+						auto i = m_world.tilesets.find(base);
+						if (i != m_world.tilesets.end())
+						{
+							codepage = i->second->GetCodepage();
+						}
+						else
+						{
+							codepage = nullptr;
+						}
+					}
+					else
+					{
 						auto cached = m_codepage_cache.find(codepage_name);
 						if (cached != m_codepage_cache.end())
 						{
@@ -873,103 +1389,221 @@ namespace BearLibTerminal
 								codepage = p.get();
 								m_codepage_cache[codepage_name] = std::move(p);
 							}
+							else
+							{
+								codepage = nullptr;
+							}
 						}
 					}
-
-					if (!try_parse(value, base))
-					{
-						base = 0;
-						codepage = nullptr;
-					}
 				}
-				else if (name == L"spacing")
+				else if (name == L"/font" || name == L"/base")
 				{
-					if (value.find(L"x") != std::wstring::npos)
+					base = 0;
+					codepage = nullptr;
+				}
+				else if (name == L"wrap" || name == L"bbox")
+				{
+					if (params.find(L'x') != std::wstring::npos)
 					{
-						if (!try_parse(value, spacing)) spacing = Size{1, 1};
+						if (!try_parse<Size>(params, wrap) || wrap.width < 0 || wrap.height < 0)
+						{
+							wrap = Size();
+						}
 					}
 					else
 					{
-						if (!try_parse(value, spacing.width)) spacing = Size{1, 1};
-					}
-
-					if (spacing.width <= 0 || spacing.height <= 0)
-					{
-						spacing = Size{1, 1};
-					}
-				}
-				else if (name == L"offset")
-				{
-					if (!try_parse(value, offset)) offset = Point{0, 0};
-				}
-				else if (name[0] == L'+')
-				{
-					combine = true;
-				}
-				else if (name[0] == L'u' || name[0] == L'U')
-				{
-					if (name.length() > 2)
-					{
-						std::wstringstream stream;
-						stream << std::hex;
-						stream << name.substr(2);
-						uint16_t value = 0;
-						stream >> value;
-						put_and_increment(value);
+						wrap.height = 0;
+						if (!try_parse<int>(params, wrap.width) || wrap.width < 0)
+						{
+							wrap.width = 0;
+						}
 					}
 				}
-			}
-		};
-
-		for (size_t i = 0; i < s.length(); i++)
-		{
-			wchar_t c = s[i];
-
-			if (c == L'[' && m_options.output_postformatting)
-			{
-				if (i == s.length()-1) break; // Malformed postformatting tag
-
-				if (s[i+1] == L'[')
+				else if (name == L"align" || name == L"a")
 				{
-					// Escaped '['
-					i += 1;
-					put_and_increment(s[i]);
+					alignment = parse<Alignment>(params);
+				}
+				else if (name == L"raw")
+				{
+					raw = true;
+				}
+				else if (try_parse(name, arbitrary_code))
+				{
+					AppendSymbol(arbitrary_code);
 				}
 				else
 				{
-					// Start of a postformatting tag
-					size_t closing = s.find(L']', i);
-					if (closing == std::wstring::npos) break; // Malformed, no closing ']'
-					apply_tag(s, i, closing);
-					i = closing;
+					std::wstring subs;
+					if (Config::Instance().TryGet(name, subs))
+					{
+						str.insert(closing_bracket_pos+1, subs);
+						if (str.length() > m_world.stage.size.Area())
+						{
+							break; // Overflow, most likely it is an recursive expanding.
+						}
+					}
+				}
+
+				if (tag)
+				{
+					tags.push_back(std::move(tag));
+					lines.back().symbols.emplace_back(-(int)(tags.size()-1));
+				}
+
+				i = closing_bracket_pos;
+			}
+			else if (c == L']' && !raw && m_options.output_postformatting)
+			{
+				if (++i >= str.length()) // malformed
+				{
+					continue;
+				}
+				else if (str[i] == L']') // escaped right bracket
+				{
+					AppendSymbol(L']');
 				}
 			}
-			else if (c == L']' && m_options.output_postformatting)
+			else if (c == L'\n') // forced line-break
 			{
-				// This MUST be an escaped ']' because regular closing postformatting ']' will be
-				// consumed while parsing that tag
-
-				if (i == s.length()-1) break; // Malformed
-
-				i += 1;
-				put_and_increment(s[i]);
-			}
-			else if (c == '\n')
-			{
-				x = x0;
-				y += spacing.height;
+				lines.emplace_back();
 			}
 			else
 			{
-				put_and_increment(c);
+				AppendSymbol(c);
 			}
 		}
 
-		// Revert state
-		m_world.state.color = original_color;
-		m_world.state.bkcolor = original_bkcolor;
+		if (wrap.width > 0) // Auto-wrap the lines
+		{
+			for (auto i = lines.begin(); i != lines.end(); i++) // maybe, vector?
+			{
+				auto& line = *i;
 
-		return printed;
+				int length = 0, last_line_break = 0;
+				for (size_t j = 0; j < line.symbols.size(); j++)
+				{
+					Line::Symbol& s = line.symbols[j];
+
+					if (s.code <= 0) // tag reference
+					{
+						continue;
+					}
+
+					if (length + s.spacing.width > wrap.width) // cut off // FIXME: prove bounds correctness
+					{
+						if (last_line_break == 0)
+						{
+							// If there was no line-break characters in the line, cut the word in half.
+							// Current symbol makes work overflow so it cannot be left on this line.
+							last_line_break = j - 1;
+						}
+
+						int offset = last_line_break + 1;
+						int leave = offset;
+
+						if (line.symbols[last_line_break].code > 0 && GetTileRelativeIndex(line.symbols[last_line_break].code) == (int)L' ')
+						{
+							leave -= 1;
+						}
+
+						auto copy = i;
+						Line next;
+						next.symbols = std::vector<Line::Symbol>(line.symbols.begin()+offset, line.symbols.end());
+						lines.insert(++copy, next);
+						line.symbols.resize(leave);
+
+						break;
+					}
+					else
+					{
+						int relative_index = GetTileRelativeIndex(s.code);
+						if (relative_index == (int)L' ' || relative_index == (int)L'-')
+						{
+							last_line_break = j;
+						}
+					}
+
+					length += s.spacing.width;
+				}
+			}
+		}
+
+		int total_height = 0;
+		int total_width = 0;
+		for (auto& line: lines)
+		{
+			line.UpdateSize();
+			total_height += line.size.height;
+			total_width = std::max(total_width, line.size.width);
+		}
+
+		if (!measure_only)
+		{
+			int cutoff_top, cutoff_bottom;
+
+			switch (alignment.vertical)
+			{
+			case Alignment::Bottom:
+				y = y0 - (total_height-1);
+				cutoff_top = y0 - (wrap.height-1);
+				cutoff_bottom = y0;
+				break;
+			case Alignment::Center:
+				y = y0 - (int)std::ceil((total_height-1)/2.0f); // NOTE: floor for lower-or-equal origin
+				cutoff_top = y0 - (int)std::ceil((wrap.height-1)/2.0f);
+				cutoff_bottom = cutoff_top + wrap.height-1;
+				break;
+			default: // Top
+				y = y0;
+				cutoff_top = y0;
+				cutoff_bottom = y0 + (wrap.height-1);
+				break;
+			}
+
+			for (auto& line: lines)
+			{
+				int line_bottom = y + (line.size.height - 1);
+
+				if (wrap.height == 0 || (y >= cutoff_top && y <= cutoff_bottom) || (line_bottom >= cutoff_top && line_bottom <= cutoff_bottom))
+				{
+					switch (alignment.horisontal)
+					{
+					case Alignment::Right:
+						x = x0 - (line.size.width - 1);
+						break;
+					case Alignment::Center:
+						x = x0 - (int)std::ceil((line.size.width-1)/2.0f); // NOTE: floor for lower-or-equal origin
+						break;
+					default: // Left
+						x = x0;
+						break;
+					}
+
+					w = -1;
+
+					for (auto& s: line.symbols)
+					{
+						if (s.code > 0)
+						{
+							PutInternal(x, y, offset.x, offset.y, (wchar_t)s.code, nullptr);
+							w = x;
+							x += s.spacing.width;
+						}
+						else
+						{
+							tags[-s.code]();
+						}
+					}
+				}
+
+				y += line.size.height;
+			}
+
+			m_world.state.color = original_fore;
+			m_world.state.bkcolor = original_back;
+		}
+
+		return wrap.width > 0? total_height: total_width;
 	}
 
 	bool Terminal::HasInputInternalUnlocked()
@@ -980,7 +1614,7 @@ namespace BearLibTerminal
 	int Terminal::HasInput()
 	{
 		std::lock_guard<std::mutex> guard(m_input_lock);
-		if (m_state == kClosed || m_vars[TK_CLOSE]) return 1;
+		if (m_state == kClosed) return 1;
 		return HasInputInternalUnlocked();
 	}
 
@@ -994,7 +1628,7 @@ namespace BearLibTerminal
 	{
 		std::unique_lock<std::mutex> lock(m_input_lock);
 
-		if (m_state == kClosed || m_vars[TK_CLOSE])
+		if (m_state == kClosed)
 		{
 			return Event(TK_CLOSE);
 		}
@@ -1016,7 +1650,6 @@ namespace BearLibTerminal
 			Event event = m_input_queue.front();
 			ConsumeEvent(event);
 			m_input_queue.pop_front();
-			ConsumeIrrelevantEvents();
 			return event;
 		}
 		else if (m_state == kClosed)
@@ -1036,15 +1669,34 @@ namespace BearLibTerminal
 		return ReadEvent(std::numeric_limits<int>::max()).code;
 	}
 
+	int Terminal::Peek()
+	{
+		std::unique_lock<std::mutex> lock(m_input_lock);
+
+		if (m_state == kClosed)
+		{
+			return TK_CLOSE;
+		}
+		else if (m_input_queue.empty())
+		{
+			return TK_INPUT_NONE;
+		}
+		else
+		{
+			Event event = m_input_queue.front();
+			ConsumeEvent(event);
+			return event.code;
+		}
+	}
+
 	/**
-	 * Reads whole string. Operates vastly differently in blocking and non-blocking modes
+	 * Reads whole string.
 	 */
 	int Terminal::ReadString(int x, int y, wchar_t* buffer, int max)
 	{
 		std::vector<Cell> original;
 		int composition_mode = m_world.state.composition;
 		m_world.state.composition = TK_ON;
-
 
 		if (buffer == nullptr || max <= 0)
 		{
@@ -1072,7 +1724,7 @@ namespace BearLibTerminal
 
 		auto put_buffer = [&](bool put_cursor)
 		{
-			Print(x, y, buffer);
+			Print(x, y, buffer, true, false);
 			if (put_cursor && cursor < max) Put(x+cursor, y, m_options.input_cursor_symbol);
 		};
 
@@ -1120,12 +1772,10 @@ namespace BearLibTerminal
 					show_cursor = true;
 				}
 			}
-			//else if (m_vars[TK_WCHAR])
 			else if (wchar_t ch = GetState(TK_WCHAR))
 			{
 				if (cursor < max)
 				{
-					//buffer[cursor++] = (wchar_t)m_vars[TK_WCHAR];
 					buffer[cursor++] = ch;
 					show_cursor = true;
 				}
@@ -1137,6 +1787,11 @@ namespace BearLibTerminal
 		m_world.state.composition = composition_mode;
 
 		return rc;
+	}
+
+	void Terminal::Delay(int period)
+	{
+		m_window->Delay(period);
 	}
 
 	const Encoding<char>& Terminal::GetEncoding() const
@@ -1209,20 +1864,15 @@ namespace BearLibTerminal
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		if (viewport_size != stage_size)
-		{
-			m_viewport_scissors = Rectangle
-			(
-				m_stage_area.left,
-				viewport_size.height - m_stage_area.height - m_stage_area.top,
-				m_stage_area.width,
-				m_stage_area.height
-			);
-		}
-		else
-		{
-			m_viewport_scissors = Rectangle();
-		}
+		m_viewport_scissors = Rectangle
+		(
+			m_stage_area.left,
+			viewport_size.height - m_stage_area.height - m_stage_area.top,
+			m_stage_area.width,
+			m_stage_area.height
+		);
+
+		m_viewport_scissors_enabled = viewport_size != stage_size;
 	}
 
 	void Terminal::PrepareFreshCharacters()
@@ -1240,7 +1890,7 @@ namespace BearLibTerminal
 			// Box Drawing (2500–257F) and Block Elements (2580–259F) are searched in different order
 			bool is_dynamic = (code >= 0x2500 && code <= 0x257F) || (code >= 0x2580 && code <= 0x259F);
 
-			for (auto i=m_world.tilesets.rbegin(); i != m_world.tilesets.rend(); i++)
+			for (auto i = m_world.tilesets.rbegin(); i != m_world.tilesets.rend(); i++)
 			{
 				if (is_dynamic)
 				{
@@ -1252,9 +1902,11 @@ namespace BearLibTerminal
 						(i->first == kUnicodeReplacementCharacter) ||
 						((i->first == 0x0000 && i->second->GetType() == Tileset::Type::TrueType));
 
-					if (unsuitable) continue;
+					if (unsuitable)
+						continue;
 				}
-				else if (i->second->Provides(code))
+
+				if (i->second->Provides(code))
 				{
 					i->second->Prepare(code);
 					provided = true;
@@ -1303,18 +1955,14 @@ namespace BearLibTerminal
 		glDisable(GL_SCISSOR_TEST);
 		glClear(GL_COLOR_BUFFER_BIT);
 
-		if (m_viewport_scissors.Area() > 0)
+		if (m_viewport_scissors_enabled)
 		{
 			glEnable(GL_SCISSOR_TEST);
-			glScissor
-			(
-				m_viewport_scissors.left,
-				m_viewport_scissors.top,
-				m_viewport_scissors.width,
-				m_viewport_scissors.height
-			);
+			auto& scissors = m_viewport_scissors;
+			glScissor(scissors.left, scissors.top, scissors.width, scissors.height);
 		}
 
+		// Backgrounds
 		Texture::Disable();
 		glBegin(GL_QUADS);
 		{
@@ -1350,12 +1998,27 @@ namespace BearLibTerminal
 
 		int w2 = m_world.state.half_cellsize.width;
 		int h2 = m_world.state.half_cellsize.height;
+		bool layer_scissors_applied = false;
 
 		uint64_t current_texture_id = 0;
 		glBegin(GL_QUADS);
 		glColor4f(1, 1, 1, 1);
 		for (auto& layer: m_world.stage.frontbuffer.layers)
 		{
+			if (layer.crop.Area() > 0)
+			{
+				Rectangle scissors = layer.crop * m_world.state.cellsize / m_stage_area_factor;
+				scissors.top = m_viewport_scissors.height - (scissors.top+scissors.height);
+				scissors += m_viewport_scissors.Location();
+
+				glEnd();
+				glEnable(GL_SCISSOR_TEST);
+				glScissor(scissors.left, scissors.top, scissors.width, scissors.height);
+				glBegin(GL_QUADS);
+
+				layer_scissors_applied = true;
+			}
+
 			int i = 0, left = 0, top = 0;
 
 			for (int y=0; y<m_world.stage.size.height; y++)
@@ -1390,6 +2053,15 @@ namespace BearLibTerminal
 
 				left = 0;
 				top += m_world.state.cellsize.height;
+			}
+
+			if (layer_scissors_applied)
+			{
+				glEnd();
+				auto& scissors = m_viewport_scissors;
+				glScissor(scissors.left, scissors.top, scissors.width, scissors.height);
+				glBegin(GL_QUADS);
+				layer_scissors_applied = false;
 			}
 		}
 		glEnd();
@@ -1441,6 +2113,27 @@ namespace BearLibTerminal
 		m_input_condvar.notify_all();
 	}
 
+	void Terminal::PushEvent(Event event)
+	{
+		bool must_be_consumed = false;
+		{
+			std::lock_guard<std::mutex> guard(m_lock);
+			must_be_consumed = !m_options.input_filter.empty() && !m_options.input_filter.count(event.code);
+		}
+
+		std::lock_guard<std::mutex> guard(m_input_lock);
+
+		if (must_be_consumed)
+		{
+			ConsumeEvent(event);
+		}
+		else
+		{
+			m_input_queue.push_back(event);
+			m_input_condvar.notify_all();
+		}
+	}
+
 	int Terminal::OnWindowEvent(Event event)
 	{
 		bool alt = get_locked(m_vars[TK_ALT], m_input_lock);
@@ -1462,19 +2155,12 @@ namespace BearLibTerminal
 		}
 		else if (event.code == TK_ACTIVATED)
 		{
-			std::lock_guard<std::mutex> guard(m_input_lock);
-
-			// Cancel all pressed keys
-			for (int i = 0; i <= TK_ALT; i++)
+			for (int i = TK_A; i <= TK_CONTROL; i++)
 			{
-				if (i == TK_CLOSE) continue;
-				if (m_vars[i])
-				{
-					m_input_queue.push_back(Event(i|TK_KEY_RELEASED, {{i, 0}}));
-				}
+				if (m_vars[i]) // FIXME: race condition
+					PushEvent(Event(i|TK_KEY_RELEASED, {{i, 0}}));
 			}
 
-			ConsumeIrrelevantEvents();
 			return 0;
 		}
 		else if (event.code == TK_STATE_UPDATE)
@@ -1574,7 +2260,8 @@ namespace BearLibTerminal
 		{
 			// Alt+G: toggle grid
 			m_show_grid = !m_show_grid;
-			Redraw(true);
+			if (Redraw(true) != -1)
+				m_window->SwapBuffers();
 			return 0;
 		}
 		else if (event.code == TK_RETURN && alt)
@@ -1614,15 +2301,7 @@ namespace BearLibTerminal
 			return 0;
 		}
 
-		std::lock_guard<std::mutex> guard(m_input_lock);
-		m_input_queue.push_back(std::move(event));
-
-		ConsumeIrrelevantEvents();
-
-		if (!m_input_queue.empty())
-		{
-			m_input_condvar.notify_all();
-		}
+		PushEvent(std::move(event));
 
 		return 0;
 	}
@@ -1638,6 +2317,10 @@ namespace BearLibTerminal
 				// Stage size changed, must reallocate and reconstruct scene
 				m_options.window_size = Size(event[TK_WIDTH], event[TK_HEIGHT]);
 				m_world.stage.Resize(m_options.window_size);
+
+				// User resize cancels client-size
+				// This one handles client-size set after resizeable.
+				m_options.window_client_size = Size();
 
 				// Client size changed, must redraw
 				m_viewport_modified = true;
@@ -1684,28 +2367,5 @@ namespace BearLibTerminal
 		}
 
 		m_vars[TK_EVENT] = event.code;
-	}
-
-	void Terminal::ConsumeIrrelevantEvents()
-	{
-		while (!m_input_queue.empty())
-		{
-			Event& event = m_input_queue.front();
-
-			bool must_be_consumed =
-				(event.domain == Event::Domain::Internal) ||
-				(event.domain == Event::Domain::Keyboard && !m_options.input_keyboard) ||
-				(event.domain == Event::Domain::Mouse && !m_options.input_mouse);
-
-			if (must_be_consumed)
-			{
-				ConsumeEvent(event);
-				m_input_queue.pop_front();
-			}
-			else
-			{
-				break;
-			}
-		}
 	}
 }

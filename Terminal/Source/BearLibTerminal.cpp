@@ -22,20 +22,94 @@
 
 #define BEARLIBTERMINAL_BUILDING_LIBRARY
 #include "BearLibTerminal.h"
+#include "Config.hpp"
 #include "Terminal.hpp"
 #include "Palette.hpp"
+#include "Config.hpp"
 #include "Log.hpp"
+#include "Utility.hpp"
+#include <map>
 #include <memory>
+#include <string>
 #include <string.h>
+#include <iostream>
 
 namespace
 {
 	static std::unique_ptr<BearLibTerminal::Terminal> g_instance;
+
+	// --------------------------------
+
+	struct cached_setting_t
+	{
+		cached_setting_t();
+		cached_setting_t(std::wstring s);
+		cached_setting_t& operator=(std::wstring s);
+		template<typename T> const T* get();
+
+		std::string s8;
+		std::u16string s16;
+		std::u32string s32;
+	};
+
+	cached_setting_t::cached_setting_t()
+	{ }
+
+	cached_setting_t::cached_setting_t(std::wstring s)
+	{
+		this->operator=(s);
+	}
+
+	cached_setting_t& cached_setting_t::operator=(std::wstring s)
+	{
+		s8 = BearLibTerminal::UTF8Encoding().Convert(s);
+		s16 = BearLibTerminal::UCS2Encoding().Convert(s);
+		s32 = BearLibTerminal::UCS4Encoding().Convert(s);
+		return *this;
+	}
+
+	template<> const char* cached_setting_t::get<char>()
+	{
+		return s8.c_str();
+	}
+
+	template<> const char16_t* cached_setting_t::get<char16_t>()
+	{
+		return s16.c_str();
+	}
+
+	template<> const char32_t* cached_setting_t::get<char32_t>()
+	{
+		return s32.c_str();
+	}
+
+	std::map<std::wstring, cached_setting_t> g_cached_settings;
 }
 
 int terminal_open()
 {
-	if (g_instance) return 0;
+	using namespace BearLibTerminal;
+
+	if (g_instance)
+	{
+		LOG(Error, "terminal_open: BearLibTerminal instance already initialized");
+		return 0;
+	}
+
+	// Try to setup Log
+	{
+		std::wstring s;
+		if (Config::Instance().TryGet(L"ini.bearlibterminal.log.file", s))
+			Log::Instance().SetFile(s);
+
+		Log::Level level;
+		if (Config::Instance().TryGet(L"ini.bearlibterminal.log.level", s) && try_parse(s, level))
+			Log::Instance().SetLevel(level);
+
+		Log::Mode mode;
+		if (Config::Instance().TryGet(L"ini.bearlibterminal.log.mode", s) && try_parse(s, mode))
+			Log::Instance().SetMode(mode);
+	}
 
 	try
 	{
@@ -44,14 +118,18 @@ int terminal_open()
 	}
 	catch (std::exception& e)
 	{
-		LOG(Fatal, "Failed to initialize terminal instance: " << e.what());
+		LOG(Fatal, "terminal_open: " << e.what());
 		return 0;
 	}
 }
 
 void terminal_close()
 {
-	if (g_instance) g_instance.reset();
+	if (g_instance)
+	{
+		g_instance.reset();
+		BearLibTerminal::Log::Instance().Dispose();
+	}
 }
 
 int terminal_set8(const int8_t* value)
@@ -64,13 +142,13 @@ int terminal_set8(const int8_t* value)
 int terminal_set16(const int16_t* value)
 {
 	if (!g_instance || !value) return -1;
-	return g_instance->SetOptions(BearLibTerminal::UTF16->Convert((const char16_t*)value));
+	return g_instance->SetOptions(BearLibTerminal::UCS2Encoding().Convert((const char16_t*)value));
 }
 
 int terminal_set32(const int32_t* value)
 {
 	if (!g_instance || !value) return -1;
-	return g_instance->SetOptions(BearLibTerminal::UTF32->Convert((const char32_t*)value));
+	return g_instance->SetOptions(BearLibTerminal::UCS4Encoding().Convert((const char32_t*)value));
 }
 
 void terminal_refresh()
@@ -89,6 +167,12 @@ void terminal_clear_area(int x, int y, int w, int h)
 {
 	if (!g_instance) return;
 	g_instance->Clear(x, y, w, h);
+}
+
+void terminal_crop(int x, int y, int w, int h)
+{
+	if (!g_instance) return;
+	g_instance->SetCrop(x, y, w, h);
 }
 
 void terminal_layer(int index)
@@ -118,34 +202,69 @@ void terminal_composition(int mode)
 void terminal_put(int x, int y, int code)
 {
 	if (!g_instance) return;
-	auto& encoding = g_instance->GetEncoding();
-	g_instance->Put(x, y, encoding.Convert(code));
+	g_instance->Put(x, y, code);
 }
 
 void terminal_put_ext(int x, int y, int dx, int dy, int code, color_t* corners)
 {
 	if (!g_instance) return;
-	auto& encoding = g_instance->GetEncoding();
-	g_instance->PutExtended(x, y, dx, dy, encoding.Convert(code), (BearLibTerminal::Color*)corners);
+	g_instance->PutExtended(x, y, dx, dy, code, (BearLibTerminal::Color*)corners);
+}
+
+int terminal_pick(int x, int y, int index)
+{
+	if (!g_instance) return 0;
+	return g_instance->Pick(x, y, index);
+}
+
+color_t terminal_pick_color(int x, int y, int index)
+{
+	if (!g_instance) return 0;
+	return g_instance->PickForeColor(x, y, index);
+}
+
+color_t terminal_pick_bkcolor(int x, int y)
+{
+	if (!g_instance) return 0;
+	return g_instance->PickBackColor(x, y);
 }
 
 int terminal_print8(int x, int y, const int8_t* s)
 {
 	if (!g_instance || !s) return -1;
 	auto& encoding = g_instance->GetEncoding();
-	return g_instance->Print(x, y, encoding.Convert((const char*)s));
+	return g_instance->Print(x, y, encoding.Convert((const char*)s), false, false);
 }
 
 int terminal_print16(int x, int y, const int16_t* s)
 {
 	if (!g_instance || !s) return -1;
-	return g_instance->Print(x, y, BearLibTerminal::UTF16->Convert((const char16_t*)s));
+	return g_instance->Print(x, y, BearLibTerminal::UCS2Encoding().Convert((const char16_t*)s), false, false);
 }
 
 int terminal_print32(int x, int y, const int32_t* s)
 {
 	if (!g_instance || !s) return -1;
-	return g_instance->Print(x, y, BearLibTerminal::UTF32->Convert((const char32_t*)s));
+	return g_instance->Print(x, y, BearLibTerminal::UCS4Encoding().Convert((const char32_t*)s), false, false);
+}
+
+int terminal_measure8(const int8_t* s)
+{
+	if (!g_instance || !s) return -1;
+	auto& encoding = g_instance->GetEncoding();
+	return g_instance->Print(0, 0, encoding.Convert((const char*)s), false, true);
+}
+
+int terminal_measure16(const int16_t* s)
+{
+	if (!g_instance || !s) return -1;
+	return g_instance->Print(0, 0, BearLibTerminal::UCS2Encoding().Convert((const char16_t*)s), false, true);
+}
+
+int terminal_measure32(const int32_t* s)
+{
+	if (!g_instance || !s) return -1;
+	return g_instance->Print(0, 0, BearLibTerminal::UCS4Encoding().Convert((const char32_t*)s), false, true);
 }
 
 int terminal_has_input()
@@ -166,7 +285,7 @@ int terminal_read()
 	return g_instance->Read();
 }
 
-template<typename char_t, typename enc_t> int read_str(int x, int y, char_t* buffer, int max, enc_t& encoding)
+template<typename char_t, typename enc_t> int read_str(int x, int y, char_t* buffer, int max, const enc_t& encoding)
 {
 	if (!g_instance) return -1;
 	std::wstring wide_buffer = encoding.Convert((const char_t*)buffer);
@@ -182,17 +301,61 @@ template<typename char_t, typename enc_t> int read_str(int x, int y, char_t* buf
 
 int terminal_read_str8(int x, int y, int8_t* buffer, int max)
 {
-	return read_str(x, y, (char*)buffer, max, *BearLibTerminal::UTF8);
+	if (!g_instance) return TK_INPUT_CANCELLED;
+	return read_str(x, y, (char*)buffer, max, g_instance->GetEncoding());
 }
 
 int terminal_read_str16(int x, int y, int16_t* buffer, int max)
 {
-	return read_str(x, y, (char16_t*)buffer, max, *BearLibTerminal::UTF16);
+	if (!g_instance) return TK_INPUT_CANCELLED;
+	return read_str(x, y, (char16_t*)buffer, max, BearLibTerminal::UCS2Encoding());
 }
 
 int terminal_read_str32(int x, int y, int32_t* buffer, int max)
 {
-	return read_str(x, y, (char32_t*)buffer, max, *BearLibTerminal::UTF32);
+	if (!g_instance) return TK_INPUT_CANCELLED;
+	return read_str(x, y, (char32_t*)buffer, max, BearLibTerminal::UCS4Encoding());
+}
+
+int terminal_peek()
+{
+	if (!g_instance) return TK_CLOSE;
+	return g_instance->Peek();
+}
+
+void terminal_delay(int period)
+{
+	if (!g_instance) return;
+	g_instance->Delay(period);
+}
+
+template<typename outer, typename inner> const outer* terminal_get(const outer* key, const outer* default_)
+{
+	typename BearLibTerminal::Encodings<inner>::type encoding;
+	std::wstring wkey = encoding.Convert(std::basic_string<inner>((const inner*)key));
+	std::wstring wout;
+	if (!BearLibTerminal::Config::Instance().TryGet(wkey, wout))
+	{
+		wout = default_ == nullptr? std::wstring(L""): encoding.Convert(std::basic_string<inner>((const inner*)default_));
+	}
+	auto& cached_setting = g_cached_settings[wkey];
+	cached_setting = wout;
+	return (const outer*)cached_setting.get<inner>();
+}
+
+const int8_t* terminal_get8(const int8_t* key, const int8_t* default_)
+{
+	return terminal_get<int8_t, char>(key, default_);
+}
+
+const int16_t* terminal_get16(const int16_t* key, const int16_t* default_)
+{
+	return terminal_get<int16_t, char16_t>(key, default_);
+}
+
+const int32_t* terminal_get32(const int32_t* key, const int32_t* default_)
+{
+	return terminal_get<int32_t, char32_t>(key, default_);
 }
 
 color_t color_from_name8(const int8_t* name)
@@ -205,11 +368,11 @@ color_t color_from_name8(const int8_t* name)
 color_t color_from_name16(const int16_t* name)
 {
 	if (!g_instance || !name) return -1;
-	return BearLibTerminal::Palette::Instance[BearLibTerminal::UTF16->Convert((const char16_t*)name)];
+	return BearLibTerminal::Palette::Instance[BearLibTerminal::UCS2Encoding().Convert((const char16_t*)name)];
 }
 
 color_t color_from_name32(const int32_t* name)
 {
 	if (!g_instance || !name) return -1;
-	BearLibTerminal::Palette::Instance[BearLibTerminal::UTF32->Convert((const char32_t*)name)];
+	return BearLibTerminal::Palette::Instance[BearLibTerminal::UCS4Encoding().Convert((const char32_t*)name)];
 }

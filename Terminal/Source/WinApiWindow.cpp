@@ -88,11 +88,17 @@ namespace BearLibTerminal
 		m_mouse_cursor_enabled(true),
 		m_mouse_cursor_visible(true),
 		m_wglSwapIntervalEXT(nullptr)
-	{ }
+	{
+		// Raising timing resolution for Delay function.
+		timeBeginPeriod(1);
+	}
 
 	WinApiWindow::~WinApiWindow()
 	{
 		Stop();
+
+		// Timing resolution restore.
+		timeEndPeriod(1);
 	}
 
 	HMODULE GetCurrentModule()
@@ -341,6 +347,11 @@ namespace BearLibTerminal
 	void WinApiWindow::SetCursorVisibility(bool visible)
 	{
 		Post([=]{m_mouse_cursor_enabled = visible;});
+	}
+
+	void WinApiWindow::Delay(int period)
+	{
+		Sleep(period);
 	}
 
 	Size WinApiWindow::GetActualSize()
@@ -794,6 +805,21 @@ namespace BearLibTerminal
 			{VK_UP,         TK_UP},
 			{VK_SHIFT,      TK_SHIFT},
 			{VK_CONTROL,    TK_CONTROL},
+			{VK_NUMPAD0,    TK_KP_0},
+			{VK_NUMPAD1,    TK_KP_1},
+			{VK_NUMPAD2,    TK_KP_2},
+			{VK_NUMPAD3,    TK_KP_3},
+			{VK_NUMPAD4,    TK_KP_4},
+			{VK_NUMPAD5,    TK_KP_5},
+			{VK_NUMPAD6,    TK_KP_6},
+			{VK_NUMPAD7,    TK_KP_7},
+			{VK_NUMPAD8,    TK_KP_8},
+			{VK_NUMPAD9,    TK_KP_9},
+			{VK_MULTIPLY,   TK_KP_MULTIPLY},
+			{VK_ADD,        TK_KP_PLUS},
+			{VK_SUBTRACT,   TK_KP_MINUS},
+			{VK_DECIMAL,    TK_KP_PERIOD},
+			{VK_DIVIDE,     TK_KP_DIVIDE}
 		};
 
 		return mapping[scancode];
@@ -881,7 +907,9 @@ namespace BearLibTerminal
 			         scancode == VK_BACK ||
 			         scancode == VK_RETURN)
 			{
-				int code = MapWindowsScancodeToTerminal(scancode);
+				int code = (scancode == VK_RETURN && extended)?
+					TK_KP_ENTER: MapWindowsScancodeToTerminal(scancode);
+
 				if (code > 0)
 				{
 					Handle(Event(code, {{code, 1}}));
@@ -994,7 +1022,9 @@ namespace BearLibTerminal
 
 				if (scancode == VK_OEM_102) scancode = VK_OEM_5;
 
-				int code = MapWindowsScancodeToTerminal(scancode);
+				int code = (scancode == VK_RETURN && extended)?
+					TK_KP_ENTER: MapWindowsScancodeToTerminal(scancode);
+
 				if (code > 0)
 				{
 					Event event(code|TK_KEY_RELEASED);
@@ -1098,7 +1128,7 @@ namespace BearLibTerminal
 
 			return TRUE;
 		}
-		else if (uMsg == WM_EXITSIZEMOVE)
+		else if (uMsg == WM_EXITSIZEMOVE && m_resizeable)
 		{
 			RECT rect;
 			GetClientRect(m_handle, &rect);

@@ -65,6 +65,7 @@ namespace BearLibTerminal
 		Atom close_message;
 		Atom invoke_message;
 		Atom wm_state;
+		Atom wm_name;
 		Atom wm_maximized_horz;
 		Atom wm_maximized_vert;
 		XSizeHints* size_hints;
@@ -316,12 +317,12 @@ namespace BearLibTerminal
 	{
 		std::lock_guard<std::mutex> guard(m_lock);
 		if ( m_private->window == 0 ) return;
-		std::string u8 = UTF8->Convert(title);
+		std::string u8 = UTF8Encoding().Convert(title);
 		XChangeProperty
 		(
 			m_private->display,
 			m_private->window,
-			m_private->wm_state, //XInternAtom(m_private->display, "_NET_WM_NAME", false),
+			m_private->wm_name,
 			XInternAtom(m_private->display, "UTF8_STRING",  false),
 			8,
 			PropModeReplace,
@@ -466,6 +467,15 @@ namespace BearLibTerminal
 				XFreePixmap(m_private->display, dummy);
 			}
 		});
+	}
+
+	void X11Window::Delay(int period)
+	{
+		timespec t;
+		int milliseconds = period % 1000;
+		t.tv_sec = (period - milliseconds) / 1000;
+		t.tv_nsec = (long)milliseconds * 1000000;
+		nanosleep(&t, nullptr);
 	}
 
 	void X11Window::Show()
@@ -938,6 +948,7 @@ namespace BearLibTerminal
 		m_private->invoke_message = XInternAtom(m_private->display, "WM_CUSTOM_INVOKE", False);
 
 		m_private->wm_state = XInternAtom(m_private->display, "_NET_WM_STATE", False);
+		m_private->wm_name = XInternAtom(m_private->display, "_NET_WM_NAME", False);
 		m_private->wm_maximized_horz = XInternAtom(m_private->display, "_NET_WM_STATE_MAXIMIZED_HORZ", False);
 		m_private->wm_maximized_vert = XInternAtom(m_private->display, "_NET_WM_STATE_MAXIMIZED_VERT", False);
 

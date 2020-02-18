@@ -252,6 +252,16 @@ int luaterminal_clear_area(lua_State* L)
 	return 0;
 }
 
+int luaterminal_crop(lua_State* L)
+{
+	int x = lua_tointeger(L, 1);
+	int y = lua_tointeger(L, 2);
+	int w = lua_tointeger(L, 3);
+	int h = lua_tointeger(L, 4);
+	terminal_crop(x, y, w, h);
+	return 0;
+}
+
 int luaterminal_layer(lua_State* L)
 {
 	terminal_layer(lua_tointeger(L, 1));
@@ -352,6 +362,32 @@ int luaterminal_put_ext(lua_State* L)
 	return 0;
 }
 
+int luaterminal_pick(lua_State* L)
+{
+	int nargs = lua_gettop(L);
+	int x = lua_tointeger(L, 1);
+	int y = lua_tointeger(L, 2);
+	int z = nargs > 2? lua_tointeger(L, 3): 0;
+	lua_pushnumber(L, terminal_pick(x, y, z));
+	return 1;
+}
+
+int luaterminal_pick_color(lua_State* L)
+{
+	int nargs = lua_gettop(L);
+	int x = lua_tointeger(L, 1);
+	int y = lua_tointeger(L, 2);
+	int z = nargs > 2? lua_tointeger(L, 3): 0;
+	lua_pushnumber(L, terminal_pick_color(x, y, z));
+	return 1;
+}
+
+int luaterminal_pick_bkcolor(lua_State* L)
+{
+	lua_pushnumber(L, terminal_pick_bkcolor(lua_tointeger(L, 1), lua_tointeger(L, 2)));
+	return 1;
+}
+
 int luaterminal_print(lua_State* L)
 {
 	int rc = terminal_print8(lua_tonumber(L, 1), lua_tonumber(L, 2), (const int8_t*)lua_tostring(L, 3));
@@ -386,6 +422,40 @@ int luaterminal_printf(lua_State* L)
 	return 1;
 }
 
+int luaterminal_measure(lua_State* L)
+{
+	int rc = terminal_measure8((const int8_t*)lua_tostring(L, 1));
+	lua_pushnumber(L, rc);
+	return 1;
+}
+
+int luaterminal_measuref(lua_State* L)
+{
+	// Stack: [s, arg1, arg2, arg3, ...]
+	int nargs = lua_gettop(L);
+	if (nargs < 1) // Because Lua won't be as lenient with argument type errors here
+	{
+		lua_pushstring(L, "luaterminal_measuref: not enough arguments");
+		lua_error(L);
+		return 0;
+	}
+	else if (lua_type(L, 1) != LUA_TSTRING)
+	{
+		lua_pushstring(L, "luaterminal_measuref: first argument is not a string");
+		lua_error(L);
+		return 0;
+	}
+
+	lua_getfield(L, 1, "format"); // Gets the "format" field from the first (bottom) stack element which is string
+	lua_insert(L, 1); // Shift retrieved function to the bottom of the stack
+
+	lua_pcall(L, nargs, 1, 0);
+
+	int rc = terminal_measure8((const int8_t*)lua_tostring(L, 3));
+	lua_pushnumber(L, rc);
+	return 1;
+}
+
 int luaterminal_has_input(lua_State* L)
 {
 	lua_pushboolean(L, terminal_has_input());
@@ -407,13 +477,8 @@ int luaterminal_check(lua_State* L)
 int luaterminal_read(lua_State* L)
 {
 	int code = terminal_read();
-	int released = (code & TK_KEY_RELEASED) > 0;
-	code = code & 0xFF;
-
 	lua_pushnumber(L, code);
-	lua_pushboolean(L, released);
-
-	return 2;
+	return 1;
 }
 
 int luaterminal_read_str(lua_State* L)
@@ -434,6 +499,29 @@ int luaterminal_read_str(lua_State* L)
 	lua_pushstring(L, buffer.data());
 
 	return 2;
+}
+
+int luaterminal_peek(lua_State* L)
+{
+	lua_pushnumber(L, terminal_peek());
+	return 1;
+}
+
+int luaterminal_delay(lua_State* L)
+{
+	terminal_delay(lua_tointeger(L, 1));
+	return 0;
+}
+
+int luaterminal_get(lua_State* L)
+{
+	// str = terminal.get(key, [default])
+	int nargs = lua_gettop(L); // 1 or 2 arguments
+	const char* key = lua_tostring(L, 1);
+	const char* default_ = nargs > 1? lua_tostring(L, 2): nullptr;
+	const char* result = (const char*)terminal_get8((const int8_t*)key, (const int8_t*)default_);
+	lua_pushstring(L, result);
+	return 1;
 }
 
 int luaterminal_color_from_name(lua_State* L)
@@ -461,19 +549,28 @@ static const luaL_Reg luaterminal_lib[] =
 	{"refresh", luaterminal_refresh},
 	{"clear", luaterminal_clear},
 	{"clear_area", luaterminal_clear_area},
+	{"crop", luaterminal_crop},
 	{"layer", luaterminal_layer},
 	{"color", luaterminal_color},
 	{"bkcolor", luaterminal_bkcolor},
 	{"composition", luaterminal_composition},
 	{"put", luaterminal_put},
 	{"put_ext", luaterminal_put_ext},
+	{"pick", luaterminal_pick},
+	{"pick_color", luaterminal_pick_color},
+	{"pick_bkcolor", luaterminal_pick_bkcolor},
 	{"print", luaterminal_print},
 	{"printf", luaterminal_printf},
+	{"measure", luaterminal_measure},
+	{"measuref", luaterminal_measuref},
 	{"has_input", luaterminal_has_input},
 	{"state", luaterminal_state},
 	{"check", luaterminal_check},
 	{"read", luaterminal_read},
 	{"read_str", luaterminal_read_str},
+	{"peek", luaterminal_peek},
+	{"delay",  luaterminal_delay},
+	{"get", luaterminal_get},
 	{"color_from_name", luaterminal_color_from_name},
 	{"color_from_argb", luaterminal_color_from_argb},
 	{NULL, NULL}
@@ -620,7 +717,7 @@ int luaopen_BearLibTerminal(lua_State* L)
 	BearLibTerminal::Module liblua = BearLibTerminal::Module::GetProviding("lua_gettop");
 	if (!liblua)
 	{
-		LOG(Error, "Lua provider module was not found");
+		//LOG(Error, "Lua provider module was not found"); // FIXME: global object dependency failure
 		return 1; // This will cause lua runtime to fail on table dereferencing, thus notifying user that something went wrong
 	}
 

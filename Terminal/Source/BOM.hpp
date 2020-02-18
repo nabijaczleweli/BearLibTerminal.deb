@@ -1,6 +1,6 @@
 /*
 * BearLibTerminal
-* Copyright (C) 2013 Cfyz
+* Copyright (C) 2015 Cfyz
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to deal
@@ -20,62 +20,37 @@
 * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#ifndef BEARLIBTERMINAL_STAGE_HPP
-#define BEARLIBTERMINAL_STAGE_HPP
+#ifndef BOM_HPP_
+#define BOM_HPP_
 
-#include "Atlas.hpp"
-#include "Color.hpp"
-#include "Tileset.hpp"
-#include <memory>
-#include <vector>
-#include <unordered_map>
+#include <istream>
+#include <ostream>
 
 namespace BearLibTerminal
 {
-	struct Cell
+	enum class BOM
 	{
-		std::vector<Leaf> leafs;
+		None = -1,
+		UTF8 = 0,
+		UTF16LE,
+		UTF16BE,
+		UTF32LE,
+		UTF32BE,
+		ASCII_Flag = 0x10,
+		ASCII_UTF8 = ASCII_Flag,
+		ASCII_UTF16LE,
+		ASCII_UTF16BE,
+		ASCII_UTF32LE,
+		ASCII_UTF32BE
 	};
 
-	struct Layer
-	{
-		Layer(Size size);
-		std::vector<Cell> cells;
-		Rectangle crop;
-	};
+	BOM DetectBOM(std::istream& stream);
 
-	struct Scene
-	{
-		std::vector<Layer> layers;
-		std::vector<Color> background;
-	};
+	void PlaceBOM(std::ostream& stream, BOM bom);
 
-	struct Stage
-	{
-		Size size;
-		Scene frontbuffer;
-		Scene backbuffer;
-		void Resize(Size size);
-	};
+	size_t GetBOMSize(BOM bom);
 
-	struct State
-	{
-		Size cellsize;      // Current cellsize; different from Options.window_cellsize in that this one is always properly set.
-		Size half_cellsize; // Cached value used in leaf drawing.
-		Color color;
-		Color bkcolor;
-		int composition;
-		int layer;
-		State();
-	};
-
-	struct World
-	{
-		std::map<uint16_t, std::unique_ptr<Tileset>> tilesets;
-		TileContainer tiles;
-		Stage stage;
-		State state;
-	};
+	std::wostream& operator<<(std::wostream& stream, BOM bom);
 }
 
-#endif // BEARLIBTERMINAL_STAGE_HPP
+#endif /* BOM_HPP_ */

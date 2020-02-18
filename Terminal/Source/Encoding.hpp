@@ -47,16 +47,52 @@ namespace BearLibTerminal
 
 	std::unique_ptr<Encoding8> GetUnibyteEncoding(const std::wstring& name);
 
-	/*
-	 * NOTE: these are not necessarily proper UTF codecs; only to the extent
-	 * the terminal library understands UTF, i. e. UCS-2.
-	 * FIXME: probably better name them UTF8/UCS2/UCS4
-	 */
-	extern std::unique_ptr<Encoding8>  UTF8;
-	extern std::unique_ptr<Encoding16> UTF16;
-	extern std::unique_ptr<Encoding32> UTF32;
+	struct UTF8Encoding: Encoding8
+	{
+		wchar_t Convert(int value) const;
+		int Convert(wchar_t value) const;
+		std::wstring Convert(const std::string& value) const;
+		std::string Convert(const std::wstring& value) const;
+		std::wstring GetName() const;
+	};
+
+	struct UCS2Encoding: Encoding16
+	{
+		wchar_t Convert(int value) const;
+		int Convert(wchar_t value) const;
+		std::wstring Convert(const std::u16string& value) const;
+		std::u16string Convert(const std::wstring& value) const;
+		std::wstring GetName() const;
+	};
+
+	struct UCS4Encoding: Encoding32
+	{
+		wchar_t Convert(int value) const;
+		int Convert(wchar_t value) const;
+		std::wstring Convert(const std::u32string& value) const;
+		std::u32string Convert(const std::wstring& value) const;
+		std::wstring GetName() const;
+	};
 
 	static const uint16_t kUnicodeReplacementCharacter = 0xFFFD;
+
+	template<typename T> struct Encodings
+	{ };
+
+	template<> struct Encodings<char>
+	{
+		typedef UTF8Encoding type;
+	};
+
+	template<> struct Encodings<char16_t>
+	{
+		typedef UCS2Encoding type;
+	};
+
+	template<> struct Encodings<char32_t>
+	{
+		typedef UCS4Encoding type;
+	};
 }
 
 #endif // BEARLIBTERMINAL_ENCODING_HPP

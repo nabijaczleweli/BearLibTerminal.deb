@@ -32,6 +32,9 @@
 #include <stdint.h>
 #include <stdarg.h>
 #include <wchar.h>
+#if defined(__cplusplus)
+#include <sstream>
+#endif
 
 /*
  * Keyboard scancodes for events/states
@@ -224,21 +227,33 @@ TERMINAL_API int terminal_set32(const int32_t* value);
 TERMINAL_API void terminal_refresh();
 TERMINAL_API void terminal_clear();
 TERMINAL_API void terminal_clear_area(int x, int y, int w, int h);
+TERMINAL_API void terminal_crop(int x, int y, int w, int h);
 TERMINAL_API void terminal_layer(int index);
 TERMINAL_API void terminal_color(color_t color);
 TERMINAL_API void terminal_bkcolor(color_t color);
 TERMINAL_API void terminal_composition(int mode);
 TERMINAL_API void terminal_put(int x, int y, int code);
 TERMINAL_API void terminal_put_ext(int x, int y, int dx, int dy, int code, color_t* corners);
+TERMINAL_API int terminal_pick(int x, int y, int index);
+TERMINAL_API color_t terminal_pick_color(int x, int y, int index);
+TERMINAL_API color_t terminal_pick_bkcolor(int x, int y);
 TERMINAL_API int terminal_print8(int x, int y, const int8_t* s);
 TERMINAL_API int terminal_print16(int x, int y, const int16_t* s);
 TERMINAL_API int terminal_print32(int x, int y, const int32_t* s);
+TERMINAL_API int terminal_measure8(const int8_t* s);
+TERMINAL_API int terminal_measure16(const int16_t* s);
+TERMINAL_API int terminal_measure32(const int32_t* s);
 TERMINAL_API int terminal_has_input();
 TERMINAL_API int terminal_state(int code);
 TERMINAL_API int terminal_read();
 TERMINAL_API int terminal_read_str8(int x, int y, int8_t* buffer, int max);
 TERMINAL_API int terminal_read_str16(int x, int y, int16_t* buffer, int max);
 TERMINAL_API int terminal_read_str32(int x, int y, int32_t* buffer, int max);
+TERMINAL_API int terminal_peek();
+TERMINAL_API void terminal_delay(int period);
+TERMINAL_API const int8_t* terminal_get8(const int8_t* key, const int8_t* default_);
+TERMINAL_API const int16_t* terminal_get16(const int16_t* key, const int16_t* default_);
+TERMINAL_API const int32_t* terminal_get32(const int32_t* key, const int32_t* default_);
 TERMINAL_API color_t color_from_name8(const int8_t* name);
 TERMINAL_API color_t color_from_name16(const int16_t* name);
 TERMINAL_API color_t color_from_name32(const int32_t* name);
@@ -280,8 +295,10 @@ TERMINAL_API color_t color_from_name32(const int32_t* name);
 
 #if defined(__cplusplus)
 #define TERMINAL_INLINE inline
+#define TERMINAL_DEFAULT(value) = value
 #else
 #define TERMINAL_INLINE static inline
+#define TERMINAL_DEFAULT(value)
 #endif
 
 TERMINAL_INLINE int terminal_set(const char* value)
@@ -304,6 +321,16 @@ TERMINAL_INLINE int terminal_wprint(int x, int y, const wchar_t* s)
 	return TERMINAL_CAT(terminal_print, TERMINAL_WCHAR_SUFFIX)(x, y, (const TERMINAL_WCHAR_TYPE*)s);
 }
 
+TERMINAL_INLINE int terminal_measure(const char* s)
+{
+	return terminal_measure8((const int8_t*)s);
+}
+
+TERMINAL_INLINE int terminal_wmeasure(const wchar_t* s)
+{
+	return TERMINAL_CAT(terminal_measure, TERMINAL_WCHAR_SUFFIX)((const TERMINAL_WCHAR_TYPE*)s);
+}
+
 TERMINAL_INLINE int terminal_read_str(int x, int y, char* buffer, int max)
 {
 	return terminal_read_str8(x, y, (int8_t*)buffer, max);
@@ -312,6 +339,16 @@ TERMINAL_INLINE int terminal_read_str(int x, int y, char* buffer, int max)
 TERMINAL_INLINE int terminal_read_wstr(int x, int y, wchar_t* buffer, int max)
 {
 	return TERMINAL_CAT(terminal_read_str, TERMINAL_WCHAR_SUFFIX)(x, y, (TERMINAL_WCHAR_TYPE*)buffer, max);
+}
+
+TERMINAL_INLINE const char* terminal_get(const char* key, const char* default_ TERMINAL_DEFAULT((const char*)0))
+{
+	return (const char*)terminal_get8((const int8_t*)key, (const int8_t*)default_);
+}
+
+TERMINAL_INLINE const wchar_t* terminal_wget(const wchar_t* key, const wchar_t* default_ TERMINAL_DEFAULT((const wchar_t*)0))
+{
+	return (const wchar_t*)TERMINAL_CAT(terminal_get, TERMINAL_WCHAR_SUFFIX)((const TERMINAL_WCHAR_TYPE*)key, (const TERMINAL_WCHAR_TYPE*)default_);
 }
 
 TERMINAL_INLINE color_t color_from_name(const char* name)
@@ -357,6 +394,8 @@ TERMINAL_FORMATTED_VA(char, set, (const char* s, va_list args), vsnprintf, (buff
 TERMINAL_FORMATTED_VA(wchar_t, wset, (const wchar_t* s, va_list args), TERMINAL_VSNWPRINTF, (buffer))
 TERMINAL_FORMATTED_VA(char, print, (int x, int y, const char* s, va_list args), vsnprintf, (x, y, buffer))
 TERMINAL_FORMATTED_VA(wchar_t, wprint, (int x, int y, const wchar_t* s, va_list args), TERMINAL_VSNWPRINTF, (x, y, buffer))
+TERMINAL_FORMATTED_VA(char, measure, (const char* s, va_list args), vsnprintf, (buffer))
+TERMINAL_FORMATTED_VA(wchar_t, wmeasure, (const wchar_t* s, va_list args), TERMINAL_VSNWPRINTF, (buffer))
 
 #define TERMINAL_FORMATTED(outer, inner)\
 	TERMINAL_INLINE int terminal_##outer\
@@ -373,6 +412,8 @@ TERMINAL_FORMATTED(setf(const char* s, ...), setf(s, args))
 TERMINAL_FORMATTED(wsetf(const wchar_t* s, ...), wsetf(s, args))
 TERMINAL_FORMATTED(printf(int x, int y, const char* s, ...), printf(x, y, s, args))
 TERMINAL_FORMATTED(wprintf(int x, int y, const wchar_t* s, ...), wprintf(x, y, s, args))
+TERMINAL_FORMATTED(measuref(const char* s, ...), measuref(s, args))
+TERMINAL_FORMATTED(wmeasuref(const wchar_t* s, ...), wmeasuref(s, args))
 
 #ifdef __cplusplus
 /*
@@ -418,6 +459,13 @@ TERMINAL_INLINE int terminal_print(int x, int y, const wchar_t* s)
 
 TERMINAL_FORMATTED(printf(int x, int y, const wchar_t* s, ...), wprintf(x, y, s, args))
 
+TERMINAL_INLINE int terminal_measure(const wchar_t* s)
+{
+	return terminal_wmeasure(s);
+}
+
+TERMINAL_FORMATTED(measuref(const wchar_t* s, ...), wmeasuref(s, args))
+
 TERMINAL_INLINE int terminal_read_str(int x, int y, wchar_t* buffer, int max)
 {
 	return terminal_read_wstr(x, y, buffer, max);
@@ -426,6 +474,30 @@ TERMINAL_INLINE int terminal_read_str(int x, int y, wchar_t* buffer, int max)
 TERMINAL_INLINE color_t color_from_name(const wchar_t* name)
 {
 	return color_from_wname(name);
+}
+
+TERMINAL_INLINE int terminal_pick(int x, int y)
+{
+	return terminal_pick(x, y, 0);
+}
+
+TERMINAL_INLINE color_t terminal_pick_color(int x, int y)
+{
+	return terminal_pick_color(x, y, 0);
+}
+
+TERMINAL_INLINE const wchar_t* terminal_get(const wchar_t* key, const wchar_t* default_ = (const wchar_t*)0)
+{
+	return terminal_wget(key, default_);
+}
+
+template<typename T, typename C> T terminal_get(const C* key, const T& default_ = T())
+{
+	const C* result_str = terminal_get(key, (const C*)0);
+	if (result_str[0] == C(0))
+		return default_;
+	T result;
+	return (bool)(std::basic_istringstream<C>(result_str) >> result)? result: default_;
 }
 
 #endif /* __cplusplus */

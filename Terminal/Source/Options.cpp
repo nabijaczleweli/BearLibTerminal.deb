@@ -11,6 +11,7 @@
 namespace BearLibTerminal
 {
 	Options::Options():
+		terminal_encoding_affects_put(true),
 		window_size(0, 0),
 		window_cellsize(0, 0),
 		window_title(L"BearLibTerminal"),
@@ -19,17 +20,14 @@ namespace BearLibTerminal
 		window_minimum_size(1, 1),
 		window_toggle_fullscreen(false),
 		output_postformatting(true),
-		output_asynchronous(true),
 		output_vsync(true),
-		input_keyboard(true),
-		input_mouse(true),
 		input_precise_mouse(false),
 		input_sticky_close(true),
 		input_cursor_symbol((uint16_t)'_'),
 		input_cursor_blink_rate(500),
 		input_mouse_cursor(true),
-		log_filename(g_logger->GetFile()),
-		log_level(g_logger->GetLevel()),
-		log_mode(g_logger->GetMode())
+		log_filename(L"bearlibterminal.log"), // FIXME: dependency failure
+		log_level(Log::Level::Error),
+		log_mode(Log::Mode::Truncate)
 	{ }
 }
