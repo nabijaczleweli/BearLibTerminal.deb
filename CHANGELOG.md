@@ -1,3 +1,10 @@
+### 0.15.4 (2017-06-30)
+
+- Fix Alt key being stuck after regaining focus (e. g. after Alt-Tab).
+- Fix blank line height/spacing in print (resolves [issue #41](https://bitbucket.org/cfyzium/bearlibterminal/issues/41/terminal_print-ignores-font-spacing-for)). 
+- Fix memory leak in Cocoa event processing (resolves [issue #44](https://bitbucket.org/cfyzium/bearlibterminal/issues/44/possible-memory-issue-with-terminalread)).
+- Fix crashing when being opened after SDL (e. g. after libtcod import in Python, see [issue #42](https://bitbucket.org/cfyzium/bearlibterminal/issues/42/improved-error-handling-with-sdl-errors)).
+
 ### 0.15.3 (2017-05-14)
 
 - Fix adding sprite tiles to an atlas (closes issue #30).

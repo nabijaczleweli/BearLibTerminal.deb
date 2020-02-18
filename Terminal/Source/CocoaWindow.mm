@@ -167,6 +167,8 @@ namespace BearLibTerminal
         {0x7D, TK_DOWN},
         {0x7E, TK_UP}
     };
+
+    static bool g_library_owns_nsapp = false;
     
     struct CocoaWindow::Impl
     {
@@ -184,6 +186,7 @@ namespace BearLibTerminal
         bool m_has_been_shown;
         id m_window;
         id m_view;
+        id m_autorelease_pool;
     };
     
     CocoaWindow::Impl::Impl(EventHandler handler):
@@ -192,7 +195,8 @@ namespace BearLibTerminal
         m_cursor_visible(true),
         m_has_been_shown(false),
         m_window(nil),
-        m_view(nil)
+        m_view(nil),
+        m_autorelease_pool(nil)
     { }
     
     void CocoaWindow::Impl::HandleApplicationDidBecomeActive()
@@ -372,10 +376,17 @@ namespace BearLibTerminal
             [NSApp setDelegate:[[CocoaTerminalApplicationDelegate alloc] init]];
             [NSApp setActivationPolicy:NSApplicationActivationPolicyRegular];
             [NSApp run];
+            g_library_owns_nsapp = true;
+        }
+        else if (!g_library_owns_nsapp)
+        {
+            throw std::runtime_error("Window system has already been initialized! (probably by another library)");
         }
         
         [[NSApp delegate] setImpl:m_impl.get()];
-		
+
+        m_impl->m_autorelease_pool = [[NSAutoreleasePool alloc] init];
+
         NSUInteger styleMask =
             NSTitledWindowMask|
             NSClosableWindowMask|
@@ -441,8 +452,16 @@ namespace BearLibTerminal
             [m_impl->m_window close];
             m_impl->m_window = nil;
         }
-		
-        [[NSApp delegate] setImpl:NULL];
+
+        if (m_impl->m_autorelease_pool != nil)
+        {
+            [m_impl->m_autorelease_pool drain];
+        }
+	
+        if (g_library_owns_nsapp)
+        {
+            [[NSApp delegate] setImpl:NULL];
+        }
     }
     
     Size CocoaWindow::GetActualSize()
@@ -580,6 +599,9 @@ namespace BearLibTerminal
             [NSApp sendEvent:event];
             processed += 1;
         }
+
+        [m_impl->m_autorelease_pool drain];
+        m_impl->m_autorelease_pool = [[NSAutoreleasePool alloc] init];
         
         return processed;
     }
