@@ -35,7 +35,6 @@ Architecture: any
 Section: libdevel
 Depends: libbearlibterminal (= ${binary:Version}),
          ${misc:Depends},
-         ${shlibs:Depends},
 Description: Iface library for applications with text-based console-like output – dev files
  BearLibTerminal provides a pseudoterminal window
  with a grid of character cells and a simple yet powerful API for
