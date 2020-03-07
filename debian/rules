@@ -4,7 +4,7 @@
 OUTDIR_LIB = $(CURDIR)/debian/libbearlibterminal/
 OUTDIR_DEV = $(CURDIR)/debian/libbearlibterminal-dev/
 
-VERSION     = $(shell awk '/^\#{3}/ {print $$2; exit}' CHANGELOG.md)
+VERSION     = $(shell awk '/^\#\#\#/ {print $$2; exit}' CHANGELOG.md)
 VERSION_MAJ = $(word 1,$(subst ., ,$(VERSION)))
 VERSION_MIN = $(word 2,$(subst ., ,$(VERSION)))
 
