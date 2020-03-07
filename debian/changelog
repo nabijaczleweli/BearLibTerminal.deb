@@ -1,3 +1,9 @@
+libbearlibterminal (0.15.7-8) unstable; urgency=medium
+
+  * Fix build on non-gawk systems (like a clean sid chroot)
+
+ -- nabijaczleweli <nabijaczleweli@gmail.com>  Sat, 07 Mar 2020 18:55:00 +0100
+
 libbearlibterminal (0.15.7-7) unstable; urgency=medium
 
   * Fix Architecture from linux-any to any
